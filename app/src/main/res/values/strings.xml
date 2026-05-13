@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">GourmetHub</string>
+    <!-- Web Client ID từ Firebase (client_type: 3 trong google-services.json) -->
+    <string name="default_web_client_id">868066988351-om2bub7ess951jbp0t99lv1jfop6gn97.apps.googleusercontent.com</string>
+
+    <!-- Facebook Login -->
+    <string name="facebook_app_id">1695859584777350</string>
+    <string name="fb_login_protocol_scheme">fb1695859584777350</string>
+    <string name="facebook_client_token">2e7f0d1d14ef4642890cc934454c3cd6</string>
+</resources>
