@@ -8,8 +8,8 @@ import retrofit2.converter.scalars.ScalarsConverterFactory
 object RetrofitClient {
     // 10.0.2.2 trỏ về localhost của máy tính khi dùng máy ảo Android
     //private const val BASE_URL = "http://10.0.2.2/WEB_ADMIN-main/"
-    private const val BASE_URL = "http://192.168.2.147/WEB_ADMIN-main/"
-
+//    private const val BASE_URL = "http://192.168.2.147/WEB_ADMIN-main/"
+    private const val BASE_URL = "http://nguyenpkm2403.id.vn/"
 
     private val gson = GsonBuilder()
         .setLenient()

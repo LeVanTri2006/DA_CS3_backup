@@ -445,9 +445,47 @@ fun OrderTrackingScreen(orderId: String, onBack: () -> Unit) {
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(orderId) {
-        if (orderId.isBlank()) { isLoading = false; errorMessage = "Mã đơn hàng không hợp lệ"; return@LaunchedEffect }
+    // Use a trigger to force refresh
+    var refreshTrigger by remember { mutableStateOf(0) }
+
+    // Listen for real-time updates from Firebase (Kitchen or Web Admin)
+    DisposableEffect(orderId) {
+        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+        
+        // Listener for Kitchen updates
+        val kitchenListener = db.collection("kitchen_updates").document("latest")
+            .addSnapshotListener { snapshot, e ->
+                if (e == null && snapshot != null && snapshot.exists()) {
+                    android.util.Log.d("ORDER_TRACKING", "Kitchen update detected, refreshing...")
+                    refreshTrigger++
+                }
+            }
+            
+        // Listener for Web Admin / Table updates (e.g., manual checkout)
+        val tableListener = db.collection("table_updates").document("latest")
+            .addSnapshotListener { snapshot, e ->
+                if (e == null && snapshot != null && snapshot.exists()) {
+                    android.util.Log.d("ORDER_TRACKING", "Web/Table update detected, refreshing...")
+                    refreshTrigger++
+                }
+            }
+
+        onDispose { 
+            kitchenListener.remove()
+            tableListener.remove()
+        }
+    }
+
+    LaunchedEffect(orderId, refreshTrigger) {
+        if (orderId.isBlank()) { 
+            isLoading = false
+            errorMessage = "Mã đơn hàng không hợp lệ"
+            return@LaunchedEffect 
+        }
         try {
+            // Chỉ hiện loading lần đầu, các lần refresh sau sẽ chạy ngầm
+            if (order == null) isLoading = true
+            
             val response = withContext(Dispatchers.IO) {
                 RetrofitClient.instance.getOrderById(orderId)
             }
@@ -458,8 +496,13 @@ fun OrderTrackingScreen(orderId: String, onBack: () -> Unit) {
                 errorMessage = "Lỗi kết nối máy chủ (${response.code()})"
             }
         } catch (e: Exception) {
+            // Quan trọng: Phải kiểm tra nếu là CancellationException thì throw ngược lại cho hệ thống
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            android.util.Log.e("ORDER_TRACKING", "Error fetching order", e)
             errorMessage = "Lỗi: ${e.message}"
-        } finally { isLoading = false }
+        } finally { 
+            isLoading = false 
+        }
     }
 
     Scaffold(topBar = { CustomerTopBar(title = "Chi Tiết Đơn Hàng", onBack = onBack) }) { padding ->
