@@ -9,6 +9,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
@@ -18,6 +19,7 @@ private val DarkColorScheme = darkColorScheme(
     tertiary = SuccessColor,
     background = BackgroundDark,
     surface = SurfaceDark,
+    surfaceVariant = SurfaceDark,
     error = ErrorColor
 )
 
@@ -28,12 +30,15 @@ private val LightColorScheme = lightColorScheme(
     tertiary = SuccessColor,
     background = BackgroundLight,
     surface = SurfaceLight,
+    surfaceVariant = SurfaceLight,
+    secondaryContainer = Color(0xFFFFF0ED), // Nền cam siêu nhạt cho nút Nav đang chọn
     error = ErrorColor
 )
 
 @Composable
 fun DA_CuoiKyTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    // Tắt chế độ tối (giống ShopeeFood) vì giao diện đồ ăn cần màu sáng để hình ảnh trông ngon miệng hơn
+    darkTheme: Boolean = false,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {

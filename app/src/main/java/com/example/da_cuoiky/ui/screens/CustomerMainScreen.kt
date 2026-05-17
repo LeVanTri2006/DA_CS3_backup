@@ -2,11 +2,16 @@ package com.example.da_cuoiky.ui.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.da_cuoiky.fiebase.AuthViewModel
 import com.example.da_cuoiky.model.*
@@ -41,36 +46,42 @@ fun CustomerMainScreen(
 
     Scaffold(
         bottomBar = {
+            val screenW = LocalConfiguration.current.screenWidthDp
+            // Dưới 380dp (màn hình nhỏ) sẽ thu nhỏ font và icon để vừa 5 tabs
+            val isSmallScreen = screenW < 380
+            val labelFontSize = if (isSmallScreen) 10.sp else 12.sp
+            val iconSize = if (isSmallScreen) 22.dp else 24.dp
+
             NavigationBar {
                 NavigationBarItem(
                     selected  = selectedTab == CustomerTab.HOME,
                     onClick   = { selectedTab = CustomerTab.HOME },
-                    icon      = { Icon(Icons.Default.Home, "Trang chủ") },
-                    label     = { Text("Trang chủ") }
+                    icon      = { Icon(Icons.Default.Home, "Trang chủ", modifier = Modifier.size(iconSize)) },
+                    label     = { Text("Trang chủ", fontSize = labelFontSize, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 )
                 NavigationBarItem(
                     selected  = selectedTab == CustomerTab.MENU,
                     onClick   = { selectedTab = CustomerTab.MENU },
-                    icon      = { Icon(Icons.Default.RestaurantMenu, "Thực đơn") },
-                    label     = { Text("Thực đơn") }
+                    icon      = { Icon(Icons.Default.RestaurantMenu, "Thực đơn", modifier = Modifier.size(iconSize)) },
+                    label     = { Text("Thực đơn", fontSize = labelFontSize, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 )
                 NavigationBarItem(
                     selected  = selectedTab == CustomerTab.BOOKING,
                     onClick   = { selectedTab = CustomerTab.BOOKING },
-                    icon      = { Icon(Icons.Default.TableBar, "Đặt bàn") },
-                    label     = { Text("Đặt bàn") }
+                    icon      = { Icon(Icons.Default.TableBar, "Đặt bàn", modifier = Modifier.size(iconSize)) },
+                    label     = { Text("Đặt bàn", fontSize = labelFontSize, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 )
                 NavigationBarItem(
                     selected  = selectedTab == CustomerTab.ORDERS,
                     onClick   = { selectedTab = CustomerTab.ORDERS },
-                    icon      = { Icon(Icons.Default.ReceiptLong, "Đơn hàng") },
-                    label     = { Text("Đơn hàng") }
+                    icon      = { Icon(Icons.Default.ReceiptLong, "Đơn hàng", modifier = Modifier.size(iconSize)) },
+                    label     = { Text("Đơn hàng", fontSize = labelFontSize, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 )
                 NavigationBarItem(
                     selected  = selectedTab == CustomerTab.PROFILE,
                     onClick   = { selectedTab = CustomerTab.PROFILE },
-                    icon      = { Icon(Icons.Default.AccountCircle, "Hồ sơ") },
-                    label     = { Text("Hồ sơ") }
+                    icon      = { Icon(Icons.Default.AccountCircle, "Hồ sơ", modifier = Modifier.size(iconSize)) },
+                    label     = { Text("Hồ sơ", fontSize = labelFontSize, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 )
             }
         }

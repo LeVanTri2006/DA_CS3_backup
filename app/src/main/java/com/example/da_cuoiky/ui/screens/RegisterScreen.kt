@@ -23,7 +23,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -121,6 +126,9 @@ fun RegisterScreen(
         return null
     }
 
+    val config = LocalConfiguration.current
+    val isSmall = config.screenWidthDp < 380
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -153,7 +161,7 @@ fun RegisterScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 40.dp),
+                .padding(horizontal = if (isSmall) 16.dp else 20.dp, vertical = if (isSmall) 24.dp else 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // ── Nút quay lại ──────────────────────────────────────────────
@@ -174,31 +182,31 @@ fun RegisterScreen(
                 Text(
                     text = "Quay lại đăng nhập",
                     color = Color.White.copy(alpha = 0.85f),
-                    fontSize = 14.sp
+                    fontSize = if (isSmall) 12.sp else 14.sp
                 )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // ── Logo ──────────────────────────────────────────────────────
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(100.dp)) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(if (isSmall) 80.dp else 100.dp)) {
                 Box(
                     modifier = Modifier
-                        .size(100.dp)
+                        .size(if (isSmall) 80.dp else 100.dp)
                         .scale(pulseScale)
                         .alpha(pulseAlpha)
                         .background(Color.White, CircleShape)
                 )
                 Box(
                     modifier = Modifier
-                        .size(80.dp)
+                        .size(if (isSmall) 60.dp else 80.dp)
                         .background(Color.White, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.PersonAdd,
                         contentDescription = null,
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier.size(if (isSmall) 30.dp else 40.dp),
                         tint = RegGradientMid
                     )
                 }
@@ -209,7 +217,7 @@ fun RegisterScreen(
             Text(
                 text = "🍽️ Gourmet Hub",
                 style = TextStyle(
-                    fontSize = 26.sp,
+                    fontSize = if (isSmall) 22.sp else 26.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White,
                     shadow = Shadow(
@@ -221,12 +229,12 @@ fun RegisterScreen(
             )
             Text(
                 text = "Tạo tài khoản mới",
-                fontSize = 13.sp,
+                fontSize = if (isSmall) 12.sp else 13.sp,
                 color = Color.White.copy(alpha = 0.80f),
                 modifier = Modifier.padding(top = 4.dp)
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(if (isSmall) 20.dp else 28.dp))
 
             // ── Main Card ─────────────────────────────────────────────────
             Card(
@@ -238,21 +246,21 @@ fun RegisterScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 28.dp),
+                        .padding(horizontal = if (isSmall) 16.dp else 24.dp, vertical = if (isSmall) 20.dp else 28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = "Đăng Ký",
-                        fontSize = 22.sp,
+                        fontSize = if (isSmall) 20.sp else 22.sp,
                         fontWeight = FontWeight.Bold,
                         color = RegTextPrimary
                     )
                     Text(
                         text = "Điền thông tin để tạo tài khoản",
-                        fontSize = 13.sp,
+                        fontSize = if (isSmall) 12.sp else 13.sp,
                         color = RegTextSecondary,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 6.dp, bottom = 22.dp)
+                        modifier = Modifier.padding(top = 6.dp, bottom = if (isSmall) 16.dp else 22.dp)
                     )
 
                     // ── Họ và tên ─────────────────────────────────────────
@@ -455,22 +463,23 @@ fun RegisterScreen(
                                 checkmarkColor = Color.White
                             )
                         )
+                        
+                        val termsFontSize = if (isSmall) 11.sp else 13.sp
                         Text(
-                            text = "Tôi đồng ý với ",
-                            fontSize = 13.sp,
-                            color = RegTextSecondary
+                            text = buildAnnotatedString {
+                                append("Tôi đồng ý với ")
+                                withStyle(style = SpanStyle(color = RegGradientMid, fontWeight = FontWeight.SemiBold)) {
+                                    append("Điều khoản & Chính sách")
+                                }
+                            },
+                            fontSize = termsFontSize,
+                            color = RegTextSecondary,
+                            lineHeight = (termsFontSize.value + 4).sp,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(enabled = !isLoading) { /* Mở trang điều khoản */ }
+                                .padding(vertical = 4.dp)
                         )
-                        TextButton(
-                            onClick = { /* Mở trang điều khoản */ },
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Text(
-                                text = "Điều khoản & Chính sách",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = RegGradientMid
-                            )
-                        }
                     }
 
                     // ── Feedback message ──────────────────────────────────
@@ -546,7 +555,7 @@ fun RegisterScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp),
+                            .height(if (isSmall) 48.dp else 54.dp),
                         shape = RoundedCornerShape(14.dp),
                         enabled = !isLoading,
                         colors = ButtonDefaults.buttonColors(

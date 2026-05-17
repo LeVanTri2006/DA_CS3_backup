@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -239,6 +241,7 @@ private fun BookingDetailsForm(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val displayDateFormat = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+    val isSmall = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 380
     
     Scaffold(
         topBar = { CustomerTopBar(title = "Đặt Bàn Trước", onBack = onBack) }
@@ -246,8 +249,8 @@ private fun BookingDetailsForm(
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                contentPadding = PaddingValues(if (isSmall) 12.dp else 16.dp),
+                verticalArrangement = Arrangement.spacedBy(if (isSmall) 12.dp else 16.dp)
             ) {
                 // Branch Card
                 item {
@@ -266,11 +269,11 @@ private fun BookingDetailsForm(
                 // Số khách
                 item {
                     Card(shape = RoundedCornerShape(14.dp)) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(if (isSmall) 12.dp else 16.dp)) {
                             Text("Số lượng khách", fontWeight = FontWeight.Bold)
                             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                                 IconButton(onClick = { if (pax > 1) onPaxChange(pax - 1) }) { Icon(Icons.Default.RemoveCircle, null, tint = PrimaryColor) }
-                                Text("$pax người", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 24.dp))
+                                Text("$pax người", fontSize = if (isSmall) 20.sp else 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = if (isSmall) 16.dp else 24.dp))
                                 IconButton(onClick = { if (pax < 20) onPaxChange(pax + 1) }) { Icon(Icons.Default.AddCircle, null, tint = PrimaryColor) }
                             }
                         }
@@ -304,9 +307,9 @@ private fun BookingDetailsForm(
                     )
 
                     Card(shape = RoundedCornerShape(14.dp)) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(modifier = Modifier.padding(if (isSmall) 12.dp else 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("Ngày & Giờ", fontWeight = FontWeight.Bold)
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(if (isSmall) 8.dp else 12.dp)) {
                                 OutlinedTextField(
                                     value = selectedDate, 
                                     onValueChange = {}, 
@@ -376,9 +379,15 @@ private fun BookingDetailsForm(
                 // Khu vực
                 item {
                     Card(shape = RoundedCornerShape(14.dp)) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(if (isSmall) 12.dp else 16.dp)) {
                             Text("Khu vực ngồi", fontWeight = FontWeight.Bold)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
                                 TableZone.entries.forEach { zone ->
                                     FilterChip(
                                         selected = selectedZone == zone,
@@ -403,7 +412,7 @@ private fun BookingDetailsForm(
 
             Button(
                 onClick = onNext,
-                modifier = Modifier.fillMaxWidth().padding(16.dp).height(56.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = if (isSmall) 12.dp else 16.dp, vertical = if (isSmall) 12.dp else 16.dp).height(if (isSmall) 48.dp else 56.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
             ) {
@@ -468,7 +477,16 @@ private fun BookingConfirmation(
                     
                     val qrUrl = "https://img.vietqr.io/image/TPBANK-0775109883-compact2.png?amount=100000&addInfo=DATBAN%20${reservation.id}"
                     
-                    Box(modifier = Modifier.size(200.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(8.dp)) {
+                    // ✅ FIX: QR size theo màn thay vì cứng 200dp
+                    val isSmallScreen = LocalConfiguration.current.screenWidthDp < 380
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(if (isSmallScreen) 0.65f else 0.55f)
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White)
+                            .padding(8.dp)
+                    ) {
                         coil.compose.AsyncImage(
                             model = qrUrl,
                             contentDescription = "QR Code",
@@ -519,16 +537,32 @@ private fun BookingInfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector
 
 @Composable
 private fun BookingSuccessScreen(reservation: Reservation, onDone: () -> Unit) {
+    // ✅ FIX: padding và icon tự co theo màn
+    val isSmall = LocalConfiguration.current.screenWidthDp < 380
     Column(
-        modifier = Modifier.fillMaxSize().background(SuccessColor).padding(32.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SuccessColor)
+            .padding(if (isSmall) 24.dp else 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(Icons.Default.CheckCircle, null, tint = Color.White, modifier = Modifier.size(100.dp))
-        Spacer(modifier = Modifier.height(24.dp))
-        Text("Đặt Bàn Thành Công!", color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text("Cảm ơn bạn đã tin tưởng Gourmet Hub", color = Color.White.copy(0.8f))
-        Spacer(modifier = Modifier.height(48.dp))
+        Icon(
+            Icons.Default.CheckCircle, null,
+            tint = Color.White,
+            modifier = Modifier.size(if (isSmall) 72.dp else 100.dp)
+        )
+        Spacer(modifier = Modifier.height(if (isSmall) 16.dp else 24.dp))
+        Text(
+            "Đặt Bàn Thành Công!",
+            color = Color.White,
+            style = if (isSmall) MaterialTheme.typography.headlineSmall
+                    else MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Text("Cảm ơn bạn đã tin tưởng Gourmet Hub", color = Color.White.copy(0.8f),
+            style = MaterialTheme.typography.bodySmall)
+        Spacer(modifier = Modifier.height(if (isSmall) 32.dp else 48.dp))
         Button(
             onClick = onDone,
             colors = ButtonDefaults.buttonColors(containerColor = Color.White),
@@ -573,19 +607,74 @@ fun CustomerProfileScreen(
         ) {
             item {
                 Box(
-                    modifier = Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(PrimaryColor, PrimaryVariant))).padding(24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Brush.verticalGradient(listOf(PrimaryColor, PrimaryVariant)))
+                        .padding(if (LocalConfiguration.current.screenWidthDp < 380) 16.dp else 24.dp),
                     contentAlignment = Alignment.Center
                 ) {
+                    val isSmall = LocalConfiguration.current.screenWidthDp < 380
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(modifier = Modifier.size(80.dp).clip(CircleShape).background(Color.White.copy(0.2f)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.size(48.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(if (isSmall) 64.dp else 80.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Person, null,
+                                tint = Color.White,
+                                modifier = Modifier.size(if (isSmall) 36.dp else 48.dp)
+                            )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         when (val state = profileState) {
                             is ProfileUiState.Loading -> CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                             is ProfileUiState.Success -> {
-                                Text(state.profile.fullName, color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                                Text(state.profile.email, color = Color.White.copy(0.8f))
+                                Text(
+                                    state.profile.fullName, color = Color.White,
+                                    style = if (isSmall) MaterialTheme.typography.titleMedium
+                                            else MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                                Text(state.profile.email, color = Color.White.copy(0.8f),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                if (state.profile.phone.isNotBlank()) {
+                                    Text(state.profile.phone, color = Color.White.copy(0.8f),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 1)
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                // ── Badge hạng thành viên ──────────────────────
+                                val (tierIcon, tierLabel, tierColor) = when {
+                                    state.totalOrders >= 50 -> Triple("💎", "Kim Cương", Color(0xFF00BCD4))
+                                    state.totalOrders >= 20 -> Triple("🥇", "Hạng Vàng", Color(0xFFFFD700))
+                                    state.totalOrders >= 10 -> Triple("🥈", "Hạng Bạc", Color(0xFF90A4AE))
+                                    state.totalOrders >= 3  -> Triple("🥉", "Hạng Đồng", Color(0xFFBF8866))
+                                    else                    -> Triple("⭐", "Thành Viên", Color(0xFFFF8F00))
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = tierColor.copy(alpha = 0.25f),
+                                    modifier = Modifier
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(tierIcon, fontSize = 14.sp)
+                                        Text(
+                                            tierLabel,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                }
                             }
                             is ProfileUiState.Error -> Text("Chào mừng bạn!", color = Color.White, fontWeight = FontWeight.Bold)
                         }
@@ -593,12 +682,31 @@ fun CustomerProfileScreen(
                 }
             }
 
+
             item {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (profileState is ProfileUiState.Success) {
+                    val successState = profileState as? ProfileUiState.Success
+                    if (successState != null) {
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFFE0E0E0)),
+                            colors = CardDefaults.cardColors(containerColor = Color.White)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Thông tin tài khoản", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 12.dp))
+
+                                AccountInfoRow(icon = Icons.Default.Person, label = "Họ và tên", value = successState.profile.fullName)
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.Gray.copy(alpha = 0.2f))
+                                AccountInfoRow(icon = Icons.Default.Email, label = "Email", value = successState.profile.email)
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.Gray.copy(alpha = 0.2f))
+                                AccountInfoRow(icon = Icons.Default.Phone, label = "Số điện thoại", value = if (successState.profile.phone.isNotBlank()) successState.profile.phone else "Chưa cập nhật")
+                            }
+                        }
+
                         ProfileMenuItem(Icons.Default.History, "Lịch sử đơn hàng", "Xem các đơn hàng đã đặt", onClick = onNavigateToOrders)
                         ProfileMenuItem(Icons.Default.TableBar, "Đặt bàn của tôi", "Quản lý lịch hẹn", onClick = { showReservations = true })
                         ProfileMenuItem(Icons.Default.LocationOn, "Địa chỉ giao hàng", "Sửa địa chỉ mặc định")
@@ -642,7 +750,12 @@ private fun ProfileMenuItem(
     isDestructive: Boolean = false,
     onClick: () -> Unit = {}
 ) {
-    Card(onClick = onClick, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        onClick = onClick, 
+        shape = RoundedCornerShape(12.dp), 
+        modifier = Modifier.fillMaxWidth(),
+        border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFFE0E0E0))
+    ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Icon(icon, null, tint = if (isDestructive) Color.Red else PrimaryColor)
             Column(modifier = Modifier.weight(1f)) {
@@ -650,6 +763,18 @@ private fun ProfileMenuItem(
                 if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
             Icon(Icons.Default.ChevronRight, null, tint = Color.Gray)
+        }
+    }
+}
+
+@Composable
+private fun AccountInfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = PrimaryColor, modifier = Modifier.size(24.dp))
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -700,7 +825,8 @@ fun MyReservationsScreen(onBack: () -> Unit) {
                     items(reservations) { item ->
                         Card(
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().clickable { selectedReservation = item }
+                            modifier = Modifier.fillMaxWidth().clickable { selectedReservation = item },
+                            border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFFE0E0E0))
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -749,11 +875,14 @@ fun MyReservationsScreen(onBack: () -> Unit) {
                     
                     if (selectedReservation!!.statusStr.uppercase() == "CONFIRMED" || selectedReservation!!.statusStr.uppercase() == "DA_THANH_TOAN") {
                         Card(
-                            modifier = Modifier.padding(16.dp).size(200.dp),
+                            // ✅ FIX: QR trong dialog theo màn thay vì cứng 200dp
+                            modifier = Modifier
+                                .fillMaxWidth(0.7f)
+                                .aspectRatio(1f),
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(containerColor = Color.White)
                         ) {
-                            Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                            Box(modifier = Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
                                 coil.compose.AsyncImage(
                                     model = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${selectedReservation!!.id}",
                                     contentDescription = "Reservation QR",

@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -193,6 +194,9 @@ fun LoginScreen(
         label = "pulseScale"
     )
 
+    val config = LocalConfiguration.current
+    val isSmall = config.screenWidthDp < 380
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -240,19 +244,19 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 48.dp),
+                .padding(horizontal = if (isSmall) 16.dp else 20.dp, vertical = if (isSmall) 24.dp else 48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             // ── Logo / Icon area ─────────────────────────────────────────
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(110.dp)
+                modifier = Modifier.size(if (isSmall) 90.dp else 110.dp)
             ) {
                 // Pulse ring
                 Box(
                     modifier = Modifier
-                        .size(110.dp)
+                        .size(if (isSmall) 90.dp else 110.dp)
                         .scale(pulseScale)
                         .alpha(pulseAlpha)
                         .background(Color.White, CircleShape)
@@ -260,7 +264,7 @@ fun LoginScreen(
                 // Solid white circle
                 Box(
                     modifier = Modifier
-                        .size(90.dp)
+                        .size(if (isSmall) 70.dp else 90.dp)
                         .scale(logoScale)
                         .background(Color.White, CircleShape),
                     contentAlignment = Alignment.Center
@@ -268,19 +272,19 @@ fun LoginScreen(
                     Icon(
                         imageVector = Icons.Default.Lock,
                         contentDescription = null,
-                        modifier = Modifier.size(44.dp),
+                        modifier = Modifier.size(if (isSmall) 36.dp else 44.dp),
                         tint = GradientMid
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(if (isSmall) 12.dp else 20.dp))
 
             // ── App name ──────────────────────────────────────────────────
             Text(
                 text = "🍽️ Gourmet Hub",
                 style = TextStyle(
-                    fontSize = 30.sp,
+                    fontSize = if (isSmall) 24.sp else 30.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White,
                     shadow = Shadow(
@@ -293,12 +297,12 @@ fun LoginScreen(
 
             Text(
                 text = "Hệ thống quản lý nhà hàng",
-                fontSize = 14.sp,
+                fontSize = if (isSmall) 12.sp else 14.sp,
                 color = Color.White.copy(alpha = 0.80f),
                 modifier = Modifier.padding(top = 4.dp)
             )
 
-            Spacer(modifier = Modifier.height(36.dp))
+            Spacer(modifier = Modifier.height(if (isSmall) 24.dp else 36.dp))
 
             // ── Glassmorphism Card ─────────────────────────────────────────
             Card(
@@ -310,21 +314,21 @@ fun LoginScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 32.dp),
+                        .padding(horizontal = if (isSmall) 16.dp else 24.dp, vertical = if (isSmall) 24.dp else 32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = "Đăng Nhập",
-                        fontSize = 22.sp,
+                        fontSize = if (isSmall) 20.sp else 22.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
                     Text(
                         text = "Chào mừng trở lại! Vui lòng đăng nhập.",
-                        fontSize = 13.sp,
+                        fontSize = if (isSmall) 12.sp else 13.sp,
                         color = TextSecondary,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 6.dp, bottom = 24.dp)
+                        modifier = Modifier.padding(top = 6.dp, bottom = if (isSmall) 16.dp else 24.dp)
                     )
 
                     // ── Email field ──────────────────────────────────────
@@ -484,7 +488,7 @@ fun LoginScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp),
+                            .height(if (isSmall) 48.dp else 54.dp),
                         shape = RoundedCornerShape(14.dp),
                         enabled = !isLoading,
                         colors = ButtonDefaults.buttonColors(
@@ -560,7 +564,7 @@ fun LoginScreen(
                             },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(50.dp),
+                                .height(if (isSmall) 46.dp else 50.dp),
                             shape = RoundedCornerShape(14.dp),
                             enabled = !isLoading && !googleLoading,
                             border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp),
@@ -597,7 +601,7 @@ fun LoginScreen(
                             },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(50.dp),
+                                .height(if (isSmall) 46.dp else 50.dp),
                             shape = RoundedCornerShape(14.dp),
                             enabled = !isLoading && !googleLoading && !facebookLoading,
                             border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp),

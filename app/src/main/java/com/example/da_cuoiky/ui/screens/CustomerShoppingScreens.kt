@@ -419,7 +419,11 @@ fun OrderListScreen(
             } else {
                 LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(orders) { order ->
-                        Card(modifier = Modifier.fillMaxWidth().clickable { onOrderClick(order.id) }, shape = RoundedCornerShape(12.dp)) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().clickable { onOrderClick(order.id) },
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFFE0E0E0))
+                        ) {
                             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
                                     Text("Mã đơn: #${order.id}", fontWeight = FontWeight.Bold)

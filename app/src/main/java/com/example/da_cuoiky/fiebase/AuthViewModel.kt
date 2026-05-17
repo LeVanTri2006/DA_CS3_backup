@@ -79,10 +79,18 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _profileState.value = ProfileUiState.Loading
             val result = repo.getUserProfile()
-            _profileState.value = if (result.isSuccess) {
-                ProfileUiState.Success(result.getOrThrow())
+            if (result.isSuccess) {
+                val profile = result.getOrThrow()
+                // Fetch số đơn hàng để xác định hạng thành viên
+                val totalOrders = try {
+                    val uid = profile.uid
+                    val api = com.example.da_cuoiky.network.RetrofitClient.instance
+                    val response = api.getOrders(uid)
+                    if (response.isSuccessful) response.body()?.data?.size ?: 0 else 0
+                } catch (e: Exception) { 0 }
+                _profileState.value = ProfileUiState.Success(profile, totalOrders)
             } else {
-                ProfileUiState.Error(result.exceptionOrNull()?.message ?: "Lỗi không xác định")
+                _profileState.value = ProfileUiState.Error(result.exceptionOrNull()?.message ?: "Lỗi không xác định")
             }
         }
     }
@@ -143,6 +151,6 @@ class AuthViewModel : ViewModel() {
 // ── UI State cho màn Profile ──────────────────────────────────────────────────
 sealed class ProfileUiState {
     object Loading : ProfileUiState()
-    data class Success(val profile: UserProfile) : ProfileUiState()
+    data class Success(val profile: UserProfile, val totalOrders: Int = 0) : ProfileUiState()
     data class Error(val message: String) : ProfileUiState()
 }

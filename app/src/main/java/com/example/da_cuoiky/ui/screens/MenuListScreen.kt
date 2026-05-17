@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,6 +41,9 @@ fun MenuListScreen(
     val menuItems by viewModel.menuItems.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+
+    // ✅ Responsive
+    val isSmall = LocalConfiguration.current.screenWidthDp < 380
 
     var selectedCategory by remember { mutableStateOf("Tất cả") }
     var searchQuery by remember { mutableStateOf("") }
@@ -93,11 +97,17 @@ fun MenuListScreen(
                         }
                     }
                     items(filteredItems.chunked(2)) { row ->
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = if (isSmall) 10.dp else 16.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(if (isSmall) 8.dp else 12.dp)
+                        ) {
                             row.forEach { item ->
                                 MenuGridCard(
                                     modifier = Modifier.weight(1f),
                                     item = item,
+                                    isSmall = isSmall,
                                     onClick = { onProductClick(item.id ?: "") },
                                     onAdd = {
                                         onAddToCart(OrderItem(
@@ -170,8 +180,11 @@ fun ProductDetailScreen(
                             Text(
                                 text = "Thêm vào giỏ — %,d ₫".format((item.price ?: 0) * qty),
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp,
-                                color = Color.White
+                                // ✅ FIX: font nhỏ hơn, có maxLines tránh tràn
+                                fontSize = 16.sp,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -186,6 +199,13 @@ fun ProductDetailScreen(
                 ) {
                     // Ảnh sản phẩm với hiệu ứng Parallax nhẹ (nếu muốn)
                     item {
+                        // ✅ FIX: ảnh nhỏ hơn trên màn nhỏ
+                        val screenWidth = LocalConfiguration.current.screenWidthDp
+                        val heroH = when {
+                            screenWidth < 380 -> 240.dp
+                            screenWidth < 420 -> 300.dp
+                            else -> 350.dp
+                        }
                         val fullImageUrl = if (item.imageUrl?.startsWith("http") == true) item.imageUrl
                         else "http://10.0.2.2/WEB_ADMIN/view/uploads/${item.imageUrl}"
                         AsyncImage(
@@ -193,7 +213,7 @@ fun ProductDetailScreen(
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(350.dp),
+                                .height(heroH),
                             contentScale = ContentScale.Crop
                         )
                     }
@@ -289,16 +309,81 @@ fun ProductDetailScreen(
     }
 }
 @Composable
-private fun MenuGridCard(modifier: Modifier = Modifier, item: MenuItem, onClick: () -> Unit, onAdd: () -> Unit) {
-    Card(modifier = modifier.clickable(onClick = onClick), shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+private fun MenuGridCard(
+    modifier: Modifier = Modifier,
+    item: MenuItem,
+    isSmall: Boolean = false,
+    onClick: () -> Unit,
+    onAdd: () -> Unit
+) {
+    val screenW = LocalConfiguration.current.screenWidthDp
+    // Font scale: 13sp (nhỏ) → 15sp (lớn) — phù hợp ShopeeFood
+    val nameFontSize = when {
+        screenW < 360 -> 12.sp
+        screenW < 390 -> 13.sp
+        screenW < 430 -> 14.sp
+        else -> 15.sp
+    }
+    val priceFontSize = when {
+        screenW < 360 -> 12.sp
+        screenW < 390 -> 13.sp
+        screenW < 430 -> 14.sp
+        else -> 15.sp
+    }
+    val imageH = if (isSmall) 115.dp else 145.dp
+    val cardPad = if (isSmall) 9.dp else 11.dp
+
+    Card(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
         Column {
-            val fullImageUrl = if (item.imageUrl?.startsWith("http") == true) item.imageUrl else "http://10.0.2.2/WEB_ADMIN/view/uploads/${item.imageUrl}"
-            AsyncImage(model = fullImageUrl, contentDescription = null, modifier = Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)), contentScale = ContentScale.Crop)
-            Column(modifier = Modifier.padding(10.dp)) {
-                Text(item.name ?: "", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis, minLines = 2)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                    Text("%,d ₫".format(item.price ?: 0), color = Color(0xFFEF6C00), fontWeight = FontWeight.Bold)
-                    IconButton(onClick = onAdd, modifier = Modifier.size(32.dp).background(Color(0xFFEF6C00), CircleShape)) { Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+            val fullImageUrl = if (item.imageUrl?.startsWith("http") == true) item.imageUrl
+                               else "http://10.0.2.2/WEB_ADMIN/view/uploads/${item.imageUrl}"
+            AsyncImage(
+                model = fullImageUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(imageH)
+                    .clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)),
+                contentScale = ContentScale.Crop
+            )
+            Column(modifier = Modifier.padding(cardPad)) {
+                Text(
+                    item.name ?: "",
+                    fontSize = nameFontSize,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    minLines = 2,
+                    lineHeight = (nameFontSize.value + 4).sp
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "%,d ₫".format(item.price ?: 0),
+                        color = Color(0xFFEF6C00),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = priceFontSize,
+                        maxLines = 1
+                    )
+                    IconButton(
+                        onClick = onAdd,
+                        modifier = Modifier
+                            .size(30.dp)
+                            .background(Color(0xFFEF6C00), CircleShape)
+                    ) {
+                        Icon(
+                            Icons.Default.Add, null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                 }
             }
         }
