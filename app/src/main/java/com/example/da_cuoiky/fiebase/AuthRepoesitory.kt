@@ -95,26 +95,41 @@ class AuthRepoesitory {
         }
     }
 
-    // ── Lấy thông tin profile từ Firestore (Thêm Timeout 5s) ────────────────────
+    // ── Lấy thông tin profile từ API PHP (Thay vì chỉ Firestore) ────────────────────
     suspend fun getUserProfile(): Result<UserProfile> {
         return try {
             val uid = auth.currentUser?.uid ?: throw Exception("Chưa đăng nhập")
             
-            // ✅ FIX: Thêm timeout để không bị treo nếu Firestore không phản hồi
-            val doc = withTimeout(5000) {
-                db.collection("users").document(uid).get().await()
+            val apiService = com.example.da_cuoiky.network.RetrofitClient.instance
+            
+            // ✅ Gọi API get_profile từ server PHP để lấy thông tin + hạng
+            val response = withTimeout(5000) {
+                apiService.getProfile(uid)
             }
             
-            val profile = UserProfile(
-                uid      = uid,
-                fullName = doc.getString("fullName") ?: auth.currentUser?.displayName ?: "Người dùng",
-                email    = doc.getString("email")    ?: auth.currentUser?.email ?: "",
-                phone    = doc.getString("phone")    ?: auth.currentUser?.phoneNumber ?: "",
-                role     = doc.getString("role")     ?: "customer"
-            )
-            Result.success(profile)
+            if (response.isSuccessful && response.body()?.success == true) {
+                val data = response.body()?.data
+                if (data != null) {
+                    val profile = UserProfile(
+                        uid      = data.uid,
+                        fullName = data.name,
+                        email    = data.email,
+                        phone    = data.phone ?: "",
+                        role     = "customer",
+                        rankData = data.rankData
+                    )
+                    return Result.success(profile)
+                }
+            }
+            
+            // Fallback nếu API PHP lỗi: lấy từ Firebase
+            val user = auth.currentUser
+            if (user != null) {
+                Result.success(UserProfile(uid = user.uid, fullName = user.displayName ?: "Khách hàng", email = user.email ?: ""))
+            } else {
+                Result.failure(Exception("Lỗi lấy thông tin tài khoản"))
+            }
         } catch (e: Exception) {
-            // Nếu lỗi/timeout, trả về thông tin tối thiểu từ Firebase Auth
             val user = auth.currentUser
             if (user != null) {
                 Result.success(UserProfile(uid = user.uid, fullName = user.displayName ?: "Khách hàng", email = user.email ?: ""))
@@ -194,11 +209,16 @@ class AuthRepoesitory {
     private fun syncWithPHP(user: FirebaseUser) {
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             try {
+                // Đọc thông tin từ Firestore để có đầy đủ tên và sđt (vì FirebaseUser có thể bị thiếu)
+                val doc = db.collection("users").document(user.uid).get().await()
+                val fullName = doc.getString("fullName") ?: user.displayName ?: "Khách hàng"
+                val phone = doc.getString("phone") ?: user.phoneNumber
+                
                 val syncRequest = com.example.da_cuoiky.model.SyncUserRequest(
                     uid = user.uid,
-                    name = user.displayName ?: "Khách hàng",
+                    name = fullName,
                     email = user.email ?: "",
-                    phone = user.phoneNumber
+                    phone = phone
                 )
                 val apiService = com.example.da_cuoiky.network.RetrofitClient.instance
                 apiService.syncUserToMySQL(syncRequest)
@@ -214,5 +234,6 @@ data class UserProfile(
     val fullName: String = "",
     val email: String    = "",
     val phone: String    = "",
-    val role: String     = "customer"
+    val role: String     = "customer",
+    val rankData: com.example.da_cuoiky.model.RankData? = null
 )

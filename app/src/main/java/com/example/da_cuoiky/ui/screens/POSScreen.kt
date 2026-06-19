@@ -116,6 +116,37 @@ fun POSScreen(
             }
         }
     }
+    
+    // ── Tự động lắng nghe Webhook ────────────────────────────────────────────
+    val listenerStartTime = remember { System.currentTimeMillis() }
+    DisposableEffect(orderId, selectedMethod) {
+        var listener: com.google.firebase.firestore.ListenerRegistration? = null
+        if (selectedMethod == PaymentMethod.QR) {
+            listener = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                .collection("PaymentStatus")
+                .document(orderId)
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) {
+                        Log.w("POS_DEBUG", "Listen failed.", e)
+                        return@addSnapshotListener
+                    }
+                    if (snapshot != null && snapshot.exists()) {
+                        val status = snapshot.getString("status")
+                        val timestampStr = snapshot.getString("timestamp")
+                        val timestamp = timestampStr?.toLongOrNull() ?: 0L
+                        
+                        // Bỏ qua nếu dữ liệu Firebase là dữ liệu cũ (cache) từ các lần test trước (trừ hao lệch giờ 5s)
+                        if (status == "da_thanh_toan" && (timestamp == 0L || timestamp > listenerStartTime - 5000)) {
+                            Log.d("POS_DEBUG", "Webhook received! Auto confirming.")
+                            // Webhook đã xử lý xong, không gọi API confirmCheckout nữa
+                            showPaymentSheet = false
+                            showReceipt = true
+                        }
+                    }
+                }
+        }
+        onDispose { listener?.remove() }
+    }
 
     // ── Logic: Confirm Checkout ──────────────────────────────────────────────
     fun confirmCheckout(method: PaymentMethod) {
@@ -244,16 +275,30 @@ fun POSScreen(
                 shadowElevation = 8.dp,
                 color = Color.White
             ) {
-                Button(
-                    onClick = { showPaymentSheet = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
-                ) {
-                    Text("THANH TOÁN — %,d ₫".format(grandTotal), fontWeight = FontWeight.Black, fontSize = 18.sp)
+                if (currentOrder.paymentStatus == "da_thanh_toan") {
+                    Button(
+                        onClick = { showReceipt = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = SuccessColor)
+                    ) {
+                        Text("ĐƠN HÀNG ĐÃ THANH TOÁN", fontWeight = FontWeight.Black, fontSize = 18.sp)
+                    }
+                } else {
+                    Button(
+                        onClick = { showPaymentSheet = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                    ) {
+                        Text("THANH TOÁN — %,d ₫".format(grandTotal), fontWeight = FontWeight.Black, fontSize = 18.sp)
+                    }
                 }
             }
         }
@@ -436,29 +481,8 @@ private fun QRSection(
     isConfirming: Boolean,
     confirmError: String?
 ) {
-    var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    
-    // Checklist: Kiểm tra khi user chọn QR, dữ liệu QR và tạo bitmap
-    LaunchedEffect(info) {
-        if (info != null) {
-            // Lỗi 1: Fallback nếu qrUrl rỗng
-            val qrContent = info.qrUrl.ifBlank { info.content }
-            
-            if (qrContent.isNotBlank()) {
-                Log.d("QR_DEBUG", "Bắt đầu tạo Bitmap cho nội dung: $qrContent")
-                qrBitmap = withContext(Dispatchers.IO) {
-                    generateQRCode(qrContent)
-                }
-                if (qrBitmap == null) {
-                    Log.e("QR_DEBUG", "Lỗi: Không thể tạo Bitmap từ dữ liệu QR")
-                } else {
-                    Log.d("QR_DEBUG", "Tạo Bitmap thành công")
-                }
-            } else {
-                Log.e("QR_DEBUG", "Lỗi: Nội dung QR trống rỗng hoàn toàn")
-            }
-        }
-    }
+    // Xóa bỏ logic tự generate Bitmap vì info.qrUrl là link ảnh (không phải chuỗi VietQR)
+    // Sẽ dùng AsyncImage để tải ảnh QR trực tiếp từ API.
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         if (isLoading) {
@@ -466,12 +490,10 @@ private fun QRSection(
         } else if (error != null) {
             Text(error, color = Color.Red, modifier = Modifier.padding(20.dp))
         } else if (info != null) {
-            // Checklist: Render bằng Image(bitmap = ...)
-            if (qrBitmap != null) {
-                val imageBitmap = remember(qrBitmap) { qrBitmap!!.asImageBitmap() }
-                Log.d("QR_DEBUG", "Đang render UI với bitmap")
-                Image(
-                    bitmap = imageBitmap,
+            if (info.qrUrl.isNotBlank()) {
+                Log.d("QR_DEBUG", "Đang render UI bằng AsyncImage với URL: ${info.qrUrl}")
+                AsyncImage(
+                    model = info.qrUrl,
                     contentDescription = "QR Code",
                     modifier = Modifier
                         .fillMaxWidth(0.7f)
@@ -481,16 +503,17 @@ private fun QRSection(
                     contentScale = ContentScale.Fit
                 )
             } else {
-                // Fallback nếu bitmap null
-                Box(
+                // Tự động fallback sang link mặc định nếu API không trả về link ảnh
+                AsyncImage(
+                    model = "https://img.vietqr.io/image/TPBANK-0775109883-compact2.png?amount=${info.amount}&addInfo=${info.content}",
+                    contentDescription = "QR Code",
                     modifier = Modifier
                         .fillMaxWidth(0.7f)
                         .aspectRatio(1f)
-                        .background(Color.LightGray.copy(0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Lỗi tạo mã QR", color = Color.Red)
-                }
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, Color.LightGray, RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Fit
+                )
             }
             
             Spacer(Modifier.height(16.dp))
@@ -503,51 +526,36 @@ private fun QRSection(
                 Text(confirmError, color = Color.Red, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
             }
 
-            Button(
-                onClick = onConfirm,
+            // Spinner tự động check
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 24.dp)
-                    .height(56.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SuccessColor),
-                enabled = !isConfirming
+                    .padding(top = 24.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 if (isConfirming) {
-                    CircularProgressIndicator(color = ColorWhite, modifier = Modifier.size(24.dp))
+                    CircularProgressIndicator(color = PrimaryColor, modifier = Modifier.size(24.dp))
                 } else {
-                    Text("XÁC NHẬN ĐÃ NHẬN TIỀN", fontWeight = FontWeight.Bold)
+                    CircularProgressIndicator(color = PrimaryColor, modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Hệ thống đang tự động kiểm tra...", color = PrimaryColor, fontWeight = FontWeight.Bold)
                 }
+            }
+
+            // Nút dự phòng thủ công
+            TextButton(
+                onClick = onConfirm,
+                modifier = Modifier.padding(top = 16.dp),
+                enabled = !isConfirming
+            ) {
+                Text("Xác nhận thủ công (nếu lỗi mạng)", color = Color.Gray, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
-private fun generateQRCode(content: String): Bitmap? {
-    if (content.isBlank()) {
-        Log.e("QR_DEBUG", "generateQRCode: Nội dung QR trống")
-        return null
-    }
-    return try {
-        val writer = QRCodeWriter()
-        val bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, 512, 512)
-        val width = bitMatrix.width
-        val height = bitMatrix.height
-        val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
-        val pixels = IntArray(width * height)
-        for (y in 0 until height) {
-            val offset = y * width
-            for (x in 0 until width) {
-                pixels[offset + x] = if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
-            }
-        }
-        bmp.setPixels(pixels, 0, width, 0, 0, width, height)
-        bmp
-    } catch (e: Exception) {
-        Log.e("QR_DEBUG", "generateQRCode: Lỗi ngoại lệ", e)
-        null
-    }
-}
+// (Đã gỡ bỏ hàm generateQRCode do sử dụng AsyncImage)
 
 @Composable
 private fun ReceiptDialog(order: Order, method: PaymentMethod, tax: Int, grandTotal: Int, onDismiss: () -> Unit) {

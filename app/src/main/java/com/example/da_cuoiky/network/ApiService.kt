@@ -38,6 +38,10 @@ interface ApiService {
     @GET("view/api_get_orders.php")
     suspend fun getOrders(@Query("user_id") userId: String): Response<OrderListResponse>
 
+    // ✅ Lấy thông tin tài khoản và hạng thành viên
+    @GET("view/api_get_profile.php")
+    suspend fun getProfile(@Query("uid") uid: String): Response<ProfileApiResponse>
+
     @POST("view/api_create_reservation.php")
     suspend fun createReservation(@Body request: ReservationRequest): Response<GenericApiResponse>
 

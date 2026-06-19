@@ -365,7 +365,7 @@ private fun InfoRow(label: String, value: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QRPaymentModalBottomSheet(
+fun QRPaymentModalBottomSheet(
     totalAmount: Int,
     orderId: String,
     onDismiss: () -> Unit,

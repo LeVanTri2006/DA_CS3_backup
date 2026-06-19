@@ -475,7 +475,7 @@ private fun BookingConfirmation(
                     Text("Mã QR Thanh Toán Tiền Cọc", fontWeight = FontWeight.Bold, color = PrimaryColor)
                     Text("Vui lòng quét mã QR dưới đây để thanh toán 100,000 đ. Đơn đặt bàn sẽ được ghi nhận sau khi thanh toán.", textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
                     
-                    val qrUrl = "https://img.vietqr.io/image/TPBANK-0775109883-compact2.png?amount=100000&addInfo=DATBAN%20${reservation.id}"
+                    val qrUrl = "https://img.vietqr.io/image/TPBANK-0775109883-compact2.png?amount=100000&addInfo=${reservation.id}"
                     
                     // ✅ FIX: QR size theo màn thay vì cứng 200dp
                     val isSmallScreen = LocalConfiguration.current.screenWidthDp < 380
@@ -649,12 +649,17 @@ fun CustomerProfileScreen(
                                 }
                                 Spacer(modifier = Modifier.height(10.dp))
                                 // ── Badge hạng thành viên ──────────────────────
-                                val (tierIcon, tierLabel, tierColor) = when {
-                                    state.totalOrders >= 50 -> Triple("💎", "Kim Cương", Color(0xFF00BCD4))
-                                    state.totalOrders >= 20 -> Triple("🥇", "Hạng Vàng", Color(0xFFFFD700))
-                                    state.totalOrders >= 10 -> Triple("🥈", "Hạng Bạc", Color(0xFF90A4AE))
-                                    state.totalOrders >= 3  -> Triple("🥉", "Hạng Đồng", Color(0xFFBF8866))
-                                    else                    -> Triple("⭐", "Thành Viên", Color(0xFFFF8F00))
+                                val rankData = state.profile.rankData
+                                val (tierIcon, tierLabel, tierColor) = if (rankData != null) {
+                                    val color = when (rankData.code) {
+                                        "platinum" -> Color(0xFF00BCD4)
+                                        "gold"     -> Color(0xFFFFD700)
+                                        "silver"   -> Color(0xFF90A4AE)
+                                        else       -> Color(0xFFFF8F00)
+                                    }
+                                    Triple(rankData.icon, rankData.name, color)
+                                } else {
+                                    Triple("⭐", "Thành Viên", Color(0xFFFF8F00))
                                 }
                                 Surface(
                                     shape = RoundedCornerShape(20.dp),
@@ -709,6 +714,41 @@ fun CustomerProfileScreen(
 
                         ProfileMenuItem(Icons.Default.History, "Lịch sử đơn hàng", "Xem các đơn hàng đã đặt", onClick = onNavigateToOrders)
                         ProfileMenuItem(Icons.Default.TableBar, "Đặt bàn của tôi", "Quản lý lịch hẹn", onClick = { showReservations = true })
+                        
+                        // Hiển thị tiến trình hạng
+                        if (successState.profile.rankData != null) {
+                            val nextRank = successState.profile.rankData.nextRankName
+                            val progress = successState.profile.rankData.progressPercent
+                            val moneyNeeded = successState.profile.rankData.moneyNeeded
+                            if (nextRank != null) {
+                                Card(
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color(0xFFE0E0E0))
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("Tiến trình lên hạng $nextRank", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                            Text("$progress%", color = PrimaryColor, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        LinearProgressIndicator(
+                                            progress = { progress / 100f },
+                                            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                                            color = PrimaryColor,
+                                            trackColor = Color(0xFFEEEEEE),
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text("Còn thiếu ${java.text.NumberFormat.getCurrencyInstance(java.util.Locale("vi", "VN")).apply { maximumFractionDigits = 0 }.format(moneyNeeded)} để thăng hạng", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                    }
+                                }
+                            }
+                        }
+
                         ProfileMenuItem(Icons.Default.LocationOn, "Địa chỉ giao hàng", "Sửa địa chỉ mặc định")
                         ProfileMenuItem(Icons.Default.CreditCard, "Phương thức thanh toán", "Quản lý thẻ, ví")
                     }
@@ -832,7 +872,7 @@ fun MyReservationsScreen(onBack: () -> Unit) {
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text(item.datetime, fontWeight = FontWeight.Bold)
                                     val statusVN = when(item.statusStr.uppercase()) {
-                                        "PENDING" -> "Chưa đặt cọc"
+                                        "PENDING", "WAITING_PAYMENT" -> "Chờ thanh toán"
                                         "CONFIRMED", "DA_THANH_TOAN" -> "Đã đặt cọc"
                                         "DA_XEP_BAN" -> "Đã nhận bàn"
                                         "COMPLETED" -> "Hoàn thành"
@@ -840,7 +880,7 @@ fun MyReservationsScreen(onBack: () -> Unit) {
                                         else -> item.statusStr
                                     }
                                     val statusColor = when(item.statusStr.uppercase()) {
-                                        "PENDING" -> Color(0xFFE6A23C)
+                                        "PENDING", "WAITING_PAYMENT" -> Color(0xFFE6A23C)
                                         "CONFIRMED", "DA_THANH_TOAN" -> Color(0xFF409EFF)
                                         "DA_XEP_BAN" -> Color(0xFF9C27B0)
                                         "COMPLETED" -> SuccessColor
@@ -859,6 +899,9 @@ fun MyReservationsScreen(onBack: () -> Unit) {
     }
 
     if (selectedReservation != null) {
+        var showResQR by remember(selectedReservation) { mutableStateOf(false) }
+        val isPending = selectedReservation!!.statusStr.uppercase() == "WAITING_PAYMENT" || selectedReservation!!.statusStr.uppercase() == "PENDING"
+        
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { selectedReservation = null },
             confirmButton = {
@@ -891,15 +934,45 @@ fun MyReservationsScreen(onBack: () -> Unit) {
                             }
                         }
                         Text("Vui lòng đưa mã này cho nhân viên để xác nhận", style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+                    } else if (isPending) {
+                        Text("Trạng thái: Chờ thanh toán", color = Color(0xFFE6A23C), fontWeight = FontWeight.Bold)
+                        
+                        if (showResQR) {
+                            val qrUrl = "https://img.vietqr.io/image/TPBANK-0775109883-compact2.png?amount=100000&addInfo=${selectedReservation!!.id}"
+                            Card(
+                                modifier = Modifier.fillMaxWidth(0.7f).aspectRatio(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White)
+                            ) {
+                                Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
+                                    coil.compose.AsyncImage(
+                                        model = qrUrl,
+                                        contentDescription = "Thanh toán QR",
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                }
+                            }
+                            Text("Quét mã để thanh toán 100,000đ", textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
+                        } else {
+                            Text("Chưa hoàn tất thanh toán cọc.", style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = { showResQR = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                            ) {
+                                Text("Tiếp Tục Thanh Toán", fontWeight = FontWeight.Bold)
+                            }
+                        }
                     } else {
                         Text("Trạng thái: ${
                             when(selectedReservation!!.statusStr.uppercase()) {
-                                "PENDING" -> "Chưa đặt cọc"
                                 "CANCELLED" -> "Đã hủy"
                                 else -> selectedReservation!!.statusStr
                             }
                         }", color = Color.Red, fontWeight = FontWeight.Bold)
-                        Text("Chưa hoàn tất thanh toán cọc hoặc đang xử lý.", style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
                     }
 
                     HorizontalDivider()

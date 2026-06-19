@@ -5,8 +5,10 @@ import androidx.activity.result.ActivityResultRegistryOwner
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -33,6 +35,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -657,6 +662,114 @@ fun LoginScreen(
                 color = Color.White.copy(alpha = 0.45f),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center
+            )
+        }
+
+        // ── Full screen loading overlay ──────────────────────────────────────
+        if (googleLoading || facebookLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable(enabled = false) {}, // Chặn click xuống dưới
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    FuturisticLoadingRing(
+                        modifier = Modifier.size(80.dp),
+                        color1 = GradientStart,
+                        color2 = GradientMid
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = "Đang kết nối hệ thống...",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ── Vòng loading phong cách công nghệ (Sci-Fi) ──────────────────────────────
+@Composable
+fun FuturisticLoadingRing(
+    modifier: Modifier = Modifier,
+    color1: Color,
+    color2: Color
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "sci-fi-loading")
+
+    val rotation1 by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(2000, easing = LinearEasing), RepeatMode.Restart),
+        label = "rot1"
+    )
+    val rotation2 by infiniteTransition.animateFloat(
+        initialValue = 360f, targetValue = 0f,
+        animationSpec = infiniteRepeatable(tween(3000, easing = LinearEasing), RepeatMode.Restart),
+        label = "rot2"
+    )
+    val rotation3 by infiniteTransition.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Restart),
+        label = "rot3"
+    )
+
+    Canvas(modifier = modifier) {
+        val brush = Brush.linearGradient(listOf(color1, color2))
+        
+        // Vòng ngoài cùng
+        rotate(rotation1) {
+            drawArc(brush, 0f, 100f, false, style = Stroke(6.dp.toPx(), cap = StrokeCap.Round))
+            drawArc(brush, 140f, 60f, false, style = Stroke(6.dp.toPx(), cap = StrokeCap.Round))
+            drawArc(brush, 240f, 80f, false, style = Stroke(6.dp.toPx(), cap = StrokeCap.Round))
+        }
+
+        // Vòng giữa
+        val insetMiddle = 12.dp.toPx()
+        rotate(rotation2) {
+            drawArc(
+                brush = brush,
+                startAngle = 30f, sweepAngle = 120f, useCenter = false,
+                topLeft = Offset(insetMiddle, insetMiddle),
+                size = androidx.compose.ui.geometry.Size(size.width - insetMiddle * 2, size.height - insetMiddle * 2),
+                style = Stroke(3.dp.toPx(), cap = StrokeCap.Round)
+            )
+            drawArc(
+                brush = brush,
+                startAngle = 200f, sweepAngle = 100f, useCenter = false,
+                topLeft = Offset(insetMiddle, insetMiddle),
+                size = androidx.compose.ui.geometry.Size(size.width - insetMiddle * 2, size.height - insetMiddle * 2),
+                style = Stroke(3.dp.toPx(), cap = StrokeCap.Round)
+            )
+        }
+
+        // Vòng trong cùng
+        val insetInner = 24.dp.toPx()
+        rotate(rotation3) {
+            drawArc(
+                brush = brush,
+                startAngle = 60f, sweepAngle = 60f, useCenter = false,
+                topLeft = Offset(insetInner, insetInner),
+                size = androidx.compose.ui.geometry.Size(size.width - insetInner * 2, size.height - insetInner * 2),
+                style = Stroke(8.dp.toPx(), cap = StrokeCap.Butt)
+            )
+            drawArc(
+                brush = brush,
+                startAngle = 150f, sweepAngle = 30f, useCenter = false,
+                topLeft = Offset(insetInner, insetInner),
+                size = androidx.compose.ui.geometry.Size(size.width - insetInner * 2, size.height - insetInner * 2),
+                style = Stroke(8.dp.toPx(), cap = StrokeCap.Butt)
+            )
+            drawArc(
+                brush = brush,
+                startAngle = 210f, sweepAngle = 90f, useCenter = false,
+                topLeft = Offset(insetInner, insetInner),
+                size = androidx.compose.ui.geometry.Size(size.width - insetInner * 2, size.height - insetInner * 2),
+                style = Stroke(8.dp.toPx(), cap = StrokeCap.Butt)
             )
         }
     }

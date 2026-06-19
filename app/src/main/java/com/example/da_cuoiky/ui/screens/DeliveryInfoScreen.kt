@@ -27,15 +27,28 @@ data class DeliveryInfo(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeliveryInfoScreen(
+    initialName: String = "",
+    initialPhone: String = "",
+    initialAddress: String = "",
+    isPickup: Boolean = false,
     onContinue: (DeliveryInfo) -> Unit,
     onBack: () -> Unit
 ) {
-    var fullName by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var isPickup by remember { mutableStateOf(false) }
-    var address by remember { mutableStateOf("") }
+    var fullName by remember { mutableStateOf(initialName) }
+    var phone by remember { mutableStateOf(initialPhone) }
+    var address by remember { mutableStateOf(if (isPickup) "Nhận tại cửa hàng" else initialAddress) }
     var note by remember { mutableStateOf("") }
     
+    // ✅ FIX: Cập nhật lại state nếu initialName/Phone được nạp xong (do gọi API bị delay)
+    LaunchedEffect(initialName, initialPhone) {
+        if (fullName.isEmpty() && initialName.isNotEmpty()) {
+            fullName = initialName
+        }
+        if (phone.isEmpty() && initialPhone.isNotEmpty()) {
+            phone = initialPhone
+        }
+    }
+
     var fullNameError by remember { mutableStateOf<String?>(null) }
     var phoneError by remember { mutableStateOf<String?>(null) }
     var addressError by remember { mutableStateOf<String?>(null) }
@@ -121,47 +134,6 @@ fun DeliveryInfoScreen(
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(start = 16.dp)
                     )
-                }
-                
-                // Delivery Type Selection
-                Text("Hình thức nhận hàng", fontWeight = FontWeight.Bold)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { 
-                            isPickup = false 
-                            if (address == "Nhận tại cửa hàng") address = ""
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (!isPickup) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (!isPickup) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                        )
-                    ) {
-                        Text("Giao tận nơi", color = if (!isPickup) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                    }
-                    OutlinedButton(
-                        onClick = { 
-                            isPickup = true 
-                            address = "Nhận tại cửa hàng"
-                            addressError = null
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (isPickup) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isPickup) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                        )
-                    ) {
-                        Text("Tự đến lấy", color = if (isPickup) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                    }
                 }
                 
                 // Address

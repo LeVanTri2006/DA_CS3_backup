@@ -221,14 +221,20 @@ fun CustomerCheckoutScreen(
     var confirmedOrderId by remember { mutableStateOf<String?>(null) }
     val total = cartItems.sumOf { it.totalPrice }
 
-    // Lấy thông tin người dùng từ StateFlow của ViewModel
     val profileState by authViewModel.profileState.collectAsState()
     val userProfile = (profileState as? ProfileUiState.Success)?.profile
 
-    // Đảm bảo thông tin profile được nạp
-    LaunchedEffect(Unit) {
+    var fullName by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+
+    // Đảm bảo thông tin profile được nạp và tự động điền vào ô
+    LaunchedEffect(userProfile) {
         if (profileState is ProfileUiState.Loading) {
             authViewModel.loadUserProfile()
+        }
+        if (userProfile != null) {
+            if (fullName.isEmpty()) fullName = userProfile.fullName
+            if (phone.isEmpty()) phone = userProfile.phone
         }
     }
 
@@ -256,13 +262,27 @@ fun CustomerCheckoutScreen(
                         }
                     }
 
-                    if (userProfile != null) {
-                        item {
-                            Spacer(Modifier.height(16.dp))
-                            Text("Thông tin khách hàng", fontWeight = FontWeight.Bold)
-                            Text("Họ tên: ${userProfile.fullName}", style = MaterialTheme.typography.bodySmall)
-                            Text("SĐT: ${userProfile.phone}", style = MaterialTheme.typography.bodySmall)
-                        }
+                    item {
+                        Spacer(Modifier.height(16.dp))
+                        Text("Thông tin khách hàng", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = fullName,
+                            onValueChange = { fullName = it },
+                            label = { Text("Họ tên") },
+                            leadingIcon = { Icon(Icons.Default.Person, null, tint = PrimaryColor) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = phone,
+                            onValueChange = { phone = it },
+                            label = { Text("Số điện thoại") },
+                            leadingIcon = { Icon(Icons.Default.Phone, null, tint = PrimaryColor) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
                     }
                 }
             }
@@ -290,8 +310,8 @@ fun CustomerCheckoutScreen(
                                 totalPrice = total,
                                 deliveryType = "PICKUP",
                                 paymentMethod = "Tiền mặt",
-                                fullName = userProfile?.fullName ?: "Khách hàng",
-                                phone = userProfile?.phone ?: "",
+                                fullName = fullName.ifBlank { "Khách hàng" },
+                                phone = phone,
                                 items = cartItems.map { item ->
                                     OrderItemRequest(
                                         menuItemId = item.menuItemId,
@@ -446,6 +466,7 @@ fun OrderListScreen(
 @Composable
 fun OrderTrackingScreen(orderId: String, onBack: () -> Unit) {
     var order by remember { mutableStateOf<Order?>(null) }
+    var showQRModal by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -554,9 +575,48 @@ fun OrderTrackingScreen(orderId: String, onBack: () -> Unit) {
                             }
                         }
                     }
+
+                    if (order?.status == OrderStatus.WAITING_PAYMENT) {
+                        PaymentCountdownTimer(
+                            createdAtString = order?.createdAt ?: "",
+                            onTimeout = {
+                                // Tự động làm mới khi hết giờ (để tải trạng thái huỷ từ server)
+                                refreshTrigger++
+                                // Gửi tín hiệu Firebase để báo Web Admin tự động tải lại trang
+                                try {
+                                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                        .collection("table_updates").document("latest")
+                                        .set(mapOf("timestamp" to System.currentTimeMillis()))
+                                } catch (e: Exception) {
+                                    android.util.Log.e("TIMEOUT", "Lỗi gửi thông báo Firebase", e)
+                                }
+                            }
+                        )
+                        
+                        Button(
+                            onClick = { showQRModal = true },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
+                        ) {
+                            Text("Tiếp Tục Thanh Toán", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
+                    }
                 }
             }
         }
+    }
+
+    if (showQRModal && order != null) {
+        QRPaymentModalBottomSheet(
+            totalAmount = order!!.totalPriceFromApi,
+            orderId = order!!.id,
+            onDismiss = { showQRModal = false },
+            onConfirmPayment = { confirmedOrderId ->
+                showQRModal = false
+                refreshTrigger++
+            }
+        )
     }
 }
 
@@ -575,9 +635,12 @@ fun OrderTimeline(order: Order) {
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
         Text("Tiến độ đơn hàng", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
         
+        val step1Title = if (status == OrderStatus.WAITING_PAYMENT) "Chờ thanh toán" else "Chờ xác nhận"
+        val step1Subtitle = if (status == OrderStatus.WAITING_PAYMENT) "Vui lòng hoàn tất thanh toán" else "Đơn hàng đã được hệ thống ghi nhận"
+
         TimelineStep(
-            title = "Chờ xác nhận", 
-            subtitle = "Đơn hàng đã được hệ thống ghi nhận", 
+            title = step1Title, 
+            subtitle = step1Subtitle, 
             isActive = step1Active, 
             isLast = false
         )
@@ -640,6 +703,59 @@ fun TimelineStep(title: String, subtitle: String, isActive: Boolean, isLast: Boo
         Column(modifier = Modifier.padding(start = 12.dp, bottom = if (isLast) 0.dp else 24.dp)) {
             Text(title, fontWeight = FontWeight.Bold, color = if (isActive) Color.Black else Color.Gray)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        }
+    }
+}
+
+@Composable
+fun PaymentCountdownTimer(createdAtString: String, onTimeout: () -> Unit) {
+    var remainingSeconds by remember { mutableStateOf(-1) }
+    
+    LaunchedEffect(createdAtString) {
+        val format = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+        // Định dạng thời gian theo giờ Việt Nam
+        format.timeZone = java.util.TimeZone.getTimeZone("Asia/Ho_Chi_Minh") 
+        try {
+            val createdTime = format.parse(createdAtString)?.time ?: System.currentTimeMillis()
+            val expireTime = createdTime + 10 * 60 * 1000 // 10 phút
+            
+            while (true) {
+                val now = System.currentTimeMillis()
+                val diff = expireTime - now
+                if (diff <= 0) {
+                    remainingSeconds = 0
+                    onTimeout()
+                    break
+                }
+                remainingSeconds = (diff / 1000).toInt()
+                kotlinx.coroutines.delay(1000)
+            }
+        } catch (e: Exception) {
+            remainingSeconds = 0
+        }
+    }
+    
+    if (remainingSeconds > 0) {
+        val min = remainingSeconds / 60
+        val sec = remainingSeconds % 60
+        val timeString = String.format("%02d:%02d", min, sec)
+        
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Timer, contentDescription = null, tint = Color(0xFFD32F2F), modifier = Modifier.size(32.dp))
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text("Đơn hàng sẽ tự động huỷ sau:", fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F), style = MaterialTheme.typography.bodyMedium)
+                    Text(timeString, fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, color = Color(0xFFD32F2F))
+                }
+            }
         }
     }
 }

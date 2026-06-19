@@ -190,7 +190,20 @@ fun RestaurantApp() {
 
         // ✅ New Customer Flow: Delivery Info
         composable(Screen.DeliveryInfo.route) {
+            val profileState by authViewModel.profileState.collectAsState()
+            val profile = (profileState as? com.example.da_cuoiky.fiebase.ProfileUiState.Success)?.profile
+            
+            LaunchedEffect(Unit) {
+                if (profileState is com.example.da_cuoiky.fiebase.ProfileUiState.Loading) {
+                    authViewModel.loadUserProfile()
+                }
+            }
+            
             DeliveryInfoScreen(
+                initialName = profile?.fullName ?: "",
+                initialPhone = profile?.phone ?: "",
+                initialAddress = deliveryAddress,
+                isPickup = deliveryType == DeliveryType.PICKUP,
                 onContinue = { deliveryInfo ->
                     // Save delivery info and navigate to payment
                     customerDeliveryInfo = deliveryInfo

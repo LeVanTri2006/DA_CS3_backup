@@ -16,6 +16,7 @@ enum class TableZone(val displayName: String) {
 
 enum class OrderStatus(val displayName: String) {
     PENDING("Chờ xác nhận"),
+    WAITING_PAYMENT("Chờ thanh toán"),
     CONFIRMED("Đã xác nhận"),
     PREPARING("Đang chuẩn bị"),
     READY("Sẵn sàng"),
@@ -38,7 +39,7 @@ enum class PaymentMethod(val displayName: String, val icon: String) {
     VNPAY("VNPay", "🔵")
 }
 
-enum class ReservationStatus { PENDING, CONFIRMED, CHECKED_IN, CANCELLED, NO_SHOW }
+enum class ReservationStatus { PENDING, WAITING_PAYMENT, CONFIRMED, CHECKED_IN, CANCELLED, NO_SHOW }
 
 // ─────────────────────────────────
 // USER & AUTH
@@ -257,7 +258,38 @@ data class SyncUserRequest(
 
 data class SyncUserResponse(
     val success: Boolean,
-    val message: String
+    val message: String,
+    @SerializedName("hang_thanh_vien") val rankData: RankData? = null
+)
+
+// ─────────────────────────────────
+// PROFILE API MODELS
+// ─────────────────────────────────
+
+data class RankData(
+    @SerializedName("ma_hang") val code: String,
+    @SerializedName("ten_hang") val name: String,
+    @SerializedName("icon") val icon: String,
+    @SerializedName("tong_chi_tieu") val totalSpent: Int,
+    @SerializedName("hang_tiep_theo") val nextRankName: String?,
+    @SerializedName("tien_can_them") val moneyNeeded: Int,
+    @SerializedName("phan_tram") val progressPercent: Int
+)
+
+data class ProfileData(
+    @SerializedName("uid_firebase") val uid: String,
+    @SerializedName("ho_ten") val name: String,
+    @SerializedName("email") val email: String,
+    @SerializedName("so_dien_thoai") val phone: String?,
+    @SerializedName("ngay_dang_ky") val registeredAt: String,
+    @SerializedName("so_don_hang") val totalOrders: Int,
+    @SerializedName("hang_thanh_vien") val rankData: RankData?
+)
+
+data class ProfileApiResponse(
+    val success: Boolean,
+    val message: String?,
+    val data: ProfileData?
 )
 
 
