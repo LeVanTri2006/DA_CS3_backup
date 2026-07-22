@@ -9,11 +9,11 @@ import kotlinx.coroutines.launch
 class AuthViewModel : ViewModel() {
     private val repo = AuthRepoesitory()
 
-    // ── State cho profile ──────────────────────────────────────────────────────
+    // ── State cho profile
     private val _profileState = MutableStateFlow<ProfileUiState>(ProfileUiState.Loading)
     val profileState: StateFlow<ProfileUiState> = _profileState
 
-    // ── Đăng nhập ─────────────────────────────────────────────────────────────
+    // ── Đăng nhập
     private var loginJob: kotlinx.coroutines.Job? = null
 
     fun login(email: String, password: String, onResult: (Boolean, String) -> Unit) {
@@ -44,7 +44,7 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    // ── Đăng ký ───────────────────────────────────────────────────────────────
+    // ── Đăng ký
     fun register(
         email: String,
         password: String,
@@ -74,7 +74,7 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    // ── Tải thông tin profile từ Firestore ────────────────────────────────────
+    // ── Tải thông tin profile từ Firestore
     fun loadUserProfile() {
         viewModelScope.launch {
             _profileState.value = ProfileUiState.Loading
@@ -95,7 +95,7 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    // ── Đăng nhập / đăng ký bằng Google ─────────────────────────────────────
+    // ── Đăng nhập / đăng ký bằng Google
     fun signInWithGoogle(idToken: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             val result = repo.signInWithGoogle(idToken)
@@ -108,7 +108,7 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    // ── Đăng nhập / đăng ký bằng Facebook ────────────────────────────────────
+    // ── Đăng nhập / đăng ký bằng Facebook
     fun signInWithFacebook(accessToken: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             val result = repo.signInWithFacebook(accessToken)
@@ -121,7 +121,7 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    // ── Gửi email đặt lại mật khẩu ───────────────────────────────────────────
+    // ── Gửi email đặt lại mật khẩu
     fun resetPassword(email: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             val result = repo.resetPassword(email)
@@ -148,7 +148,7 @@ class AuthViewModel : ViewModel() {
     fun isLoggedIn() = repo.getCurrenUser() != null
 }
 
-// ── UI State cho màn Profile ──────────────────────────────────────────────────
+// ── UI State cho màn Profile
 sealed class ProfileUiState {
     object Loading : ProfileUiState()
     data class Success(val profile: UserProfile, val totalOrders: Int = 0) : ProfileUiState()

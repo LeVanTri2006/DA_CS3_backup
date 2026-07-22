@@ -26,19 +26,19 @@ interface ApiService {
     @GET("view/api_get_order.php")
     suspend fun getOrderById(@Query("id") id: String): Response<OrderResponse>
 
-    // ✅ Lấy danh sách đơn hàng cho nhà bếp
+    //  Lấy danh sách đơn hàng cho nhà bếp
     @GET("view/api_get_kitchen_orders.php")
     suspend fun getKitchenOrders(): Response<KitchenListResponse>
 
-    // ✅ Cập nhật trạng thái đơn hàng (Dùng cho Bếp)
+    //  Cập nhật trạng thái đơn hàng (Dùng cho Bếp)
     @POST("view/api_update_order_status.php")
     suspend fun updateOrderStatus(@Body request: OrderStatusRequest): Response<GenericApiResponse>
 
-    // ✅ Lấy danh sách đơn hàng của người dùng
+    //  Lấy danh sách đơn hàng của người dùng
     @GET("view/api_get_orders.php")
     suspend fun getOrders(@Query("user_id") userId: String): Response<OrderListResponse>
 
-    // ✅ Lấy thông tin tài khoản và hạng thành viên
+    //  Lấy thông tin tài khoản và hạng thành viên
     @GET("view/api_get_profile.php")
     suspend fun getProfile(@Query("uid") uid: String): Response<ProfileApiResponse>
 
@@ -59,4 +59,16 @@ interface ApiService {
 
     @POST("view/api_create_customer_order.php")
     suspend fun createCustomerOrder(@Body request: Map<String, String>): Response<GenericApiResponse>
+
+    @POST("view/api_gemini_assistant.php")
+    suspend fun askGeminiAssistant(@Body request: GeminiRequest): Response<GeminiResponse>
+
+    @POST("view/api_cancel_order.php")
+    suspend fun cancelOrder(@Body request: Map<String, String>): Response<GenericApiResponse>
+
+    @POST("view/api_paypal_create_order.php")
+    suspend fun createPayPalOrder(@Body request: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
+
+    @POST("view/api_paypal_capture_order.php")
+    suspend fun capturePayPalOrder(@Body request: Map<String, @JvmSuppressWildcards Any>): Response<Map<String, @JvmSuppressWildcards Any>>
 }

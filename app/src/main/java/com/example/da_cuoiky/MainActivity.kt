@@ -14,7 +14,9 @@ import com.example.da_cuoiky.navigation.Screen
 import com.example.da_cuoiky.ui.screens.*
 import com.example.da_cuoiky.ui.theme.DA_CuoiKyTheme
 
-class MainActivity : ComponentActivity() {
+import androidx.fragment.app.FragmentActivity
+
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -23,18 +25,66 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onNewIntent(newIntent: android.content.Intent) {
+        super.onNewIntent(newIntent)
+        intent = newIntent
+    }
 }
 
 @Composable
 fun RestaurantApp() {
     val authViewModel: AuthViewModel = viewModel()
     val navController = rememberNavController()
-    var cartItems by remember { mutableStateOf<List<OrderItem>>(emptyList()) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sharedPrefs = remember { context.getSharedPreferences("restaurant_prefs", android.content.Context.MODE_PRIVATE) }
+    val gson = remember { com.google.gson.Gson() }
+
+    var cartItems by remember {
+        val savedCart = sharedPrefs.getString("cart_items", null)
+        val initialList = if (savedCart != null) {
+            val type = object : com.google.gson.reflect.TypeToken<List<OrderItem>>() {}.type
+            try {
+                gson.fromJson<List<OrderItem>>(savedCart, type)
+            } catch (e: Exception) {
+                emptyList()
+            }
+        } else {
+            emptyList()
+        }
+        mutableStateOf(initialList)
+    }
+
+    LaunchedEffect(cartItems) {
+        sharedPrefs.edit().putString("cart_items", gson.toJson(cartItems)).apply()
+    }
+
     var lastOrderId by remember { mutableStateOf<String?>(null) }
     var deliveryType by remember { mutableStateOf(DeliveryType.PICKUP) }
     var deliveryAddress by remember { mutableStateOf("") }
     var floorPlanRefreshKey by remember { mutableIntStateOf(0) }  // ✅ Refresh key for FloorPlan
-    var customerDeliveryInfo by remember { mutableStateOf<DeliveryInfo?>(null) }  // ✅ Delivery info state
+    
+    var customerDeliveryInfo by remember {
+        val savedInfo = sharedPrefs.getString("delivery_info", null)
+        val initialInfo = if (savedInfo != null) {
+            try {
+                gson.fromJson(savedInfo, DeliveryInfo::class.java)
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+        mutableStateOf(initialInfo)
+    }
+
+    LaunchedEffect(customerDeliveryInfo) {
+        if (customerDeliveryInfo == null) {
+            sharedPrefs.edit().remove("delivery_info").apply()
+        } else {
+            sharedPrefs.edit().putString("delivery_info", gson.toJson(customerDeliveryInfo)).apply()
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -179,16 +229,17 @@ fun RestaurantApp() {
             )
         }
 
-        // ✅ New Customer Flow: Confirm Order
+        //  Confirm Order
         composable(Screen.ConfirmOrder.route) {
             ConfirmOrderScreen(
                 cartItems = cartItems,
+                deliveryType = deliveryType,
                 onContinue = { navController.navigate(Screen.DeliveryInfo.route) },
                 onBack = { navController.popBackStack() }
             )
         }
 
-        // ✅ New Customer Flow: Delivery Info
+        //  Delivery Info
         composable(Screen.DeliveryInfo.route) {
             val profileState by authViewModel.profileState.collectAsState()
             val profile = (profileState as? com.example.da_cuoiky.fiebase.ProfileUiState.Success)?.profile
@@ -205,18 +256,19 @@ fun RestaurantApp() {
                 initialAddress = deliveryAddress,
                 isPickup = deliveryType == DeliveryType.PICKUP,
                 onContinue = { deliveryInfo ->
-                    // Save delivery info and navigate to payment
+
                     customerDeliveryInfo = deliveryInfo
-                    // ✅ FIX: KHÔNG tạo orderId local, API sẽ trả về orderId sau khi insert
+
                     navController.navigate(Screen.CustomerPayment.route)
                 },
                 onBack = { navController.popBackStack() }
             )
         }
 
-        // ✅ New Customer Flow: Payment
+        //  Payment
         composable(Screen.CustomerPayment.route) {
-            val totalAmount = cartItems.sumOf { it.totalPrice } + 15000
+            val deliveryFee = if (deliveryType == com.example.da_cuoiky.model.DeliveryType.PICKUP) 0 else 15000
+            val totalAmount = cartItems.sumOf { it.totalPrice } + deliveryFee
             CustomerPaymentScreen(
                 totalAmount = totalAmount,
                 deliveryInfo = customerDeliveryInfo ?: DeliveryInfo(),
@@ -276,6 +328,12 @@ fun RestaurantApp() {
             BookingScreen(
                 authViewModel = authViewModel,
                 onConfirm = { _ -> navController.popBackStack() },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.AiAssistant.route) {
+            AiAssistantScreen(
                 onBack = { navController.popBackStack() }
             )
         }

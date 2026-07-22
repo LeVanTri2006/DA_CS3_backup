@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -35,9 +36,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// ─────────────────────────────────
-// CART SCREEN
-// ─────────────────────────────────
+
+// Giỏ hàng
+
 
 @Composable
 fun CartScreen(
@@ -67,7 +68,7 @@ fun CartScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // ── Delivery Type ──────────────────────────────────────────
+                //  Delivery Type
                 item {
                     Card(shape = RoundedCornerShape(14.dp)) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -469,9 +470,86 @@ fun OrderTrackingScreen(orderId: String, onBack: () -> Unit) {
     var showQRModal by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isCanceling by remember { mutableStateOf(false) }
+    var isProcessingPayPal by remember { mutableStateOf(false) }
+    var currentPayPalOrderId by rememberSaveable { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val activity = context as? androidx.fragment.app.FragmentActivity
 
     // Use a trigger to force refresh
     var refreshTrigger by remember { mutableStateOf(0) }
+
+    // Tích hợp PayPal cho việc tiếp tục thanh toán
+    val payPalClient = remember(activity) {
+        if (activity != null) {
+            val config = com.paypal.android.corepayments.CoreConfig(
+                "AbXnimJcBjtYtH5Rq87kb6J5lraw9aGCvXH-AmXrCyK4-wWyF4qMzj_Ap-c0JVh4PTss4_8T8OBKg0ix",
+                environment = com.paypal.android.corepayments.Environment.LIVE
+            )
+            val client = com.paypal.android.paypalwebpayments.PayPalWebCheckoutClient(
+                activity, config, "dacuoikypaypal"
+            )
+            client.listener = object : com.paypal.android.paypalwebpayments.PayPalWebCheckoutListener {
+                override fun onPayPalWebSuccess(result: com.paypal.android.paypalwebpayments.PayPalWebCheckoutResult) {
+                    scope.launch {
+                        isProcessingPayPal = true
+                        try {
+                            val apiService = com.example.da_cuoiky.network.RetrofitClient.instance
+                            val request = HashMap<String, Any>()
+                            request["paypal_order_id"] = result.orderId ?: ""
+                            request["id_hoa_don"] = orderId
+                            val response = apiService.capturePayPalOrder(request)
+                            if (response.isSuccessful && response.body()?.get("status") == "success") {
+                                refreshTrigger++
+                                Toast.makeText(context, "Thanh toán PayPal thành công!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                errorMessage = "Lỗi capture: ${response.body()?.get("message")}"
+                            }
+                        } catch (e: Exception) {
+                            errorMessage = "Lỗi kết nối khi capture"
+                        } finally {
+                            isProcessingPayPal = false
+                        }
+                    }
+                }
+                override fun onPayPalWebFailure(error: com.paypal.android.corepayments.PayPalSDKError) {
+                    errorMessage = "PayPal Error: ${error.errorDescription}"
+                }
+                override fun onPayPalWebCanceled() {
+                    // Cố gắng capture trong trường hợp trình duyệt trả về Cancel (do mất State)
+                    val localPId = currentPayPalOrderId
+                    if (localPId != null) {
+                        scope.launch {
+                            isProcessingPayPal = true
+                            try {
+                                val apiService = com.example.da_cuoiky.network.RetrofitClient.instance
+                                val request = HashMap<String, Any>()
+                                request["paypal_order_id"] = localPId
+                                request["id_hoa_don"] = orderId
+                                val response = apiService.capturePayPalOrder(request)
+                                if (response.isSuccessful && response.body()?.get("status") == "success") {
+                                    refreshTrigger++
+                                    Toast.makeText(context, "Thanh toán PayPal thành công!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Đã hủy thanh toán PayPal", Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Đã hủy thanh toán PayPal", Toast.LENGTH_SHORT).show()
+                            } finally {
+                                isProcessingPayPal = false
+                            }
+                        }
+                    } else {
+                        Toast.makeText(context, "Đã hủy thanh toán PayPal", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            client
+        } else null
+    }
+
+    // (refreshTrigger moved up)
 
     // Listen for real-time updates from Firebase (Kitchen or Web Admin)
     DisposableEffect(orderId) {
@@ -580,9 +658,7 @@ fun OrderTrackingScreen(orderId: String, onBack: () -> Unit) {
                         PaymentCountdownTimer(
                             createdAtString = order?.createdAt ?: "",
                             onTimeout = {
-                                // Tự động làm mới khi hết giờ (để tải trạng thái huỷ từ server)
                                 refreshTrigger++
-                                // Gửi tín hiệu Firebase để báo Web Admin tự động tải lại trang
                                 try {
                                     com.google.firebase.firestore.FirebaseFirestore.getInstance()
                                         .collection("table_updates").document("latest")
@@ -594,12 +670,86 @@ fun OrderTrackingScreen(orderId: String, onBack: () -> Unit) {
                         )
                         
                         Button(
-                            onClick = { showQRModal = true },
+                            onClick = { 
+                                if (order?.paymentMethod == "paypal") {
+                                    if (isProcessingPayPal) return@Button
+                                    isProcessingPayPal = true
+                                    scope.launch {
+                                        try {
+                                            val apiService = com.example.da_cuoiky.network.RetrofitClient.instance
+                                            val request = mutableMapOf<String, Any>(
+                                                "id_hoa_don" to orderId,
+                                                "tong_tien" to (order?.totalPriceFromApi ?: 0)
+                                            )
+                                            val response = apiService.createPayPalOrder(request)
+                                            if (response.isSuccessful && response.body()?.get("status") == "success") {
+                                                val paypalOrderId = response.body()?.get("paypal_order_id")?.toString() ?: ""
+                                                currentPayPalOrderId = paypalOrderId
+                                                val payPalReq = com.paypal.android.paypalwebpayments.PayPalWebCheckoutRequest(paypalOrderId)
+                                                payPalClient?.start(payPalReq)
+                                            } else {
+                                                errorMessage = "Lỗi tạo lại PayPal Order"
+                                            }
+                                        } catch(e: Exception) {
+                                            errorMessage = "Lỗi mạng khi gọi PayPal"
+                                        } finally {
+                                            isProcessingPayPal = false
+                                        }
+                                    }
+                                } else {
+                                    showQRModal = true 
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth().height(56.dp),
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
                         ) {
-                            Text("Tiếp Tục Thanh Toán", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            if (isProcessingPayPal) {
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                            } else {
+                                Text("Tiếp Tục Thanh Toán", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            }
+                        }
+                    }
+                    
+                    if (order?.status == OrderStatus.WAITING_PAYMENT || order?.status == OrderStatus.PENDING) {
+                        OutlinedButton(
+                            onClick = {
+                                if (isCanceling) return@OutlinedButton
+                                isCanceling = true
+                                scope.launch {
+                                    try {
+                                        val response = withContext(Dispatchers.IO) {
+                                            RetrofitClient.instance.cancelOrder(mapOf("id_hoa_don" to orderId))
+                                        }
+                                        if (response.isSuccessful && response.body()?.status == "success") {
+                                            Toast.makeText(context, "Hủy đơn hàng thành công", Toast.LENGTH_SHORT).show()
+                                            refreshTrigger++
+                                            try {
+                                                com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                                    .collection("table_updates").document("latest")
+                                                    .set(mapOf("timestamp" to System.currentTimeMillis()))
+                                            } catch (e: Exception) {}
+                                        } else {
+                                            Toast.makeText(context, response.body()?.message ?: "Lỗi hủy đơn", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Lỗi kết nối", Toast.LENGTH_SHORT).show()
+                                    } finally {
+                                        isCanceling = false
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD32F2F))
+                        ) {
+                            if (isCanceling) {
+                                CircularProgressIndicator(color = Color(0xFFD32F2F), modifier = Modifier.size(24.dp))
+                            } else {
+                                Text("Hủy Đơn Hàng", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFFD32F2F))
+                            }
                         }
                     }
                 }

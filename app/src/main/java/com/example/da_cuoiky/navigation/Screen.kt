@@ -44,4 +44,5 @@ sealed class Screen(val route: String) {
         fun buildRoute(orderId: String) = "customer/tracking/$orderId"
     }
     object CustomerProfile : Screen("customer/profile")
+    object AiAssistant : Screen("customer/ai_assistant")
 }

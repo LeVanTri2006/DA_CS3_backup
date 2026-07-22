@@ -147,7 +147,8 @@ data class Order(
     val eta: String = "25 phút",
     val tableName: String = "",
     val deliveryType: String = "",
-    val paymentStatus: String = "chua_thanh_toan"
+    val paymentStatus: String = "chua_thanh_toan",
+    @SerializedName("phuong_thuc_thanh_toan") val paymentMethod: String = "tien_mat"
 ) {
     val status: OrderStatus get() = try {
         OrderStatus.valueOf(statusStr.uppercase())
@@ -177,10 +178,10 @@ data class TableModel(
     @SerializedName("suc_chua") val capacity: Int,
     @SerializedName("trang_thai") val statusStr: String = "trong",
     @SerializedName("id_hoa_don") val currentOrderId: String? = null,
-    @SerializedName("currentOrderId") val currentOrderIdAlt: String? = null,  // ✅ Alt field name from API
-    @SerializedName("orderStatus") val orderStatus: String? = null,  // ✅ Order status from DB
-    @SerializedName("orderTotal") val orderTotal: Int = 0,  // ✅ Order total
-    @SerializedName("itemCount") val itemCount: Int = 0  // ✅ Number of items
+    @SerializedName("currentOrderId") val currentOrderIdAlt: String? = null,
+    @SerializedName("orderStatus") val orderStatus: String? = null,
+    @SerializedName("orderTotal") val orderTotal: Int = 0,
+    @SerializedName("itemCount") val itemCount: Int = 0
 ) {
     val status: TableStatus get() = when(statusStr) {
         "co_khach" -> TableStatus.OCCUPIED
@@ -192,7 +193,7 @@ data class TableModel(
         "Ngoài trời" -> TableZone.OUTDOOR
         else -> TableZone.INDOOR
     }
-    // ✅ Use either field for current order ID
+
     val activeOrderId: String? get() = currentOrderId ?: currentOrderIdAlt
 }
 
@@ -237,17 +238,7 @@ data class Reservation(
     val qrCode: String = ""
 )
 
-data class InventoryItem(
-    @SerializedName("id") val id: Int,
-    @SerializedName("ten_nguyen_lieu") val name: String,
-    @SerializedName("don_vi_tinh") val unit: String,
-    @SerializedName("so_luong_ton") val qtyOnHand: Double,
-    @SerializedName("nguong_bao_dong") val lowStockThreshold: Double,
-    @SerializedName("gia_von_nhap") val importPrice: Double,
-    @SerializedName("ma_danh_muc") val categoryId: Int
-) {
-    val isLowStock: Boolean get() = qtyOnHand <= lowStockThreshold
-}
+
 
 data class SyncUserRequest(
     @SerializedName("uid_firebase") val uid: String,
@@ -302,58 +293,6 @@ object SampleData {
         id = "B01", name = "Nhà Hàng Gourmet Hub",
         address = "12 Lê Lợi, Q.1", phone = "028 3822 0000",
         openHours = "10:00 - 22:00"
-    )
-
-    val categories = listOf("Tất cả", "Món chính", "Khai vị", "Đồ uống", "Tráng miệng")
-
-    val menuItems = listOf(
-        MenuItem(id = "M01", name = "Phở Bò Đặc Biệt", price = 65000, categoryId = 1, imageUrl = "https://images.unsplash.com/photo-1569050467447-ce54b3bbc37d?w=400"),
-        MenuItem(id = "M02", name = "Bún Bò Huế", price = 58000, categoryId = 1, imageUrl = "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=400"),
-        MenuItem(id = "M03", name = "Cơm Tấm Sườn Nướng", price = 75000, categoryId = 1, imageUrl = "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=400")
-    )
-    
-    val kitchenOrders = listOf(
-        KitchenOrder(
-            orderId = "O1001", tableName = "Bàn 01",
-            items = listOf(OrderItem("M01", "Phở Bò", 2, 65000)),
-            createdAt = System.currentTimeMillis(), targetTimeMinutes = 10, status = "PENDING"
-        )
-    )
-
-    val tables = listOf(
-        TableModel("T01", "Bàn 01", "Trong nhà", 4, "trong"),
-        TableModel("T02", "Bàn 02", "Trong nhà", 4, "co_khach", "O1001"),
-        TableModel("T03", "Bàn 03", "Ngoài trời", 2, "trong"),
-        TableModel("T04", "Phòng VIP 1", "Phòng VIP", 10, "dat_truoc")
-    )
-
-    val sampleOrder = Order(
-        id = "O1001",
-        tableId = "T02",
-        staffId = "S01",
-        statusStr = "PREPARING",
-        totalPriceFromApi = 130000,
-        createdAt = "2024-05-20 18:00:00",
-        items = listOf(
-            OrderItem("M01", "Phở Bò Đặc Biệt", 2, 65000)
-        )
-    )
-
-    val customerUser = User(id = "U002", name = "Lan", phone = "098", role = UserRole.CUSTOMER)
-
-    val reservations = listOf(
-        Reservation(
-            id = "RES01", userId = "U002", userName = "Lan", branchId = "B01",
-            datetime = "20:00, 20/04/2026", pax = 4, status = ReservationStatus.CONFIRMED
-        )
-    )
-
-    val inventoryItems = listOf(
-        InventoryItem(1, "Bò thăn loại 1", "kg", 15.0, 3.0, 280000.0, 6),
-        InventoryItem(2, "Sườn heo non", "kg", 20.0, 5.0, 180000.0, 6),
-        InventoryItem(3, "Gạo tấm thơm", "kg", 50.0, 10.0, 22000.0, 5),
-        InventoryItem(4, "Bánh phở tươi", "kg", 25.0, 5.0, 15000.0, 6),
-        InventoryItem(9, "Sữa đặc (Lon 380g)", "lon", 48.0, 12.0, 18500.0, 5)
     )
 }
 
@@ -412,10 +351,10 @@ data class CreateOrderRequest(
     @SerializedName("nhan_vien_id") val staffId: String? = null,
     @SerializedName("ma_chi_nhanh")   val branchId: String = "B01",
     @SerializedName("tong_tien")    val totalPrice: Int,
-    @SerializedName("hinh_thuc_nhan") val deliveryType: String = "PICKUP", // ✅ Bổ sung hình thức nhận
-    @SerializedName("phuong_thuc_thanh_toan") val paymentMethod: String = "Tiền mặt", // ✅ Bổ sung PT thanh toán
-    @SerializedName("ho_ten")       val fullName: String? = null, // ✅ Bổ sung tên KH
-    @SerializedName("so_dien_thoai") val phone: String? = null,   // ✅ Bổ sung SĐT KH
+    @SerializedName("hinh_thuc_nhan") val deliveryType: String = "PICKUP", // Bổ sung hình thức nhận
+    @SerializedName("phuong_thuc_thanh_toan") val paymentMethod: String = "Tiền mặt", //  Bổ sung PT thanh toán
+    @SerializedName("ho_ten")       val fullName: String? = null, //  Bổ sung tên KH
+    @SerializedName("so_dien_thoai") val phone: String? = null,   //  Bổ sung SĐT KH
     @SerializedName("chi_tiet")     val items: List<OrderItemRequest>
 )
 
@@ -511,4 +450,21 @@ data class PaymentApiInfo(
     @SerializedName("so_tien") val amount: Int,
     @SerializedName("noi_dung_chuyen_khoan") val content: String,
     @SerializedName("duong_dan_qr") val qrUrl: String
+)
+
+// ─────────────────────────────────
+// GEMINI AI API MODELS
+// ─────────────────────────────────
+
+data class GeminiRequest(
+    val type: String, // "recommendation" hoặc "nutrition"
+    val query: String = "", 
+    val weather: String = "", 
+    val time: String = ""
+)
+
+data class GeminiResponse(
+    val status: Int,
+    val reply: String?,
+    val message: String?
 )

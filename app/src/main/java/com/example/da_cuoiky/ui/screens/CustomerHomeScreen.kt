@@ -27,10 +27,7 @@ import coil.compose.AsyncImage
 import com.example.da_cuoiky.model.*
 import com.example.da_cuoiky.ui.theme.*
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Typography Scale — chuẩn ShopeeFood/Grab style
-// Chỉ thay đổi 1-2sp giữa các breakpoint, KHÔNG thu nhỏ typography token
-// ─────────────────────────────────────────────────────────────────────────────
+
 internal data class AppTypoScale(
     val heroTitle: TextUnit,       // "Gourmet Hub"
     val heroSubtitle: TextUnit,    // "Xin chào..."
@@ -264,7 +261,7 @@ fun CustomerHomeScreen(
                 }
             }
 
-            // ── Quick Actions — style Grab/ShopeeFood ────────────────
+
             // 4 action icons luôn fit 1 hàng, dùng weight(1f) không cần lo overflow
             Row(
                 modifier = Modifier
@@ -308,7 +305,7 @@ fun CustomerHomeScreen(
 
             Spacer(modifier = Modifier.height(sectionGap))
 
-            // ── Promo Banner — ShopeeFood style ─────────────────────
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -451,7 +448,7 @@ fun CustomerHomeScreen(
 
 // ─────────────────────────────────
 // Quick Action Button
-// Icon 52dp, label 12-14sp — giống Grab
+// Icon 52dp, label 12-14sp
 // ─────────────────────────────────
 @Composable
 private fun CustomerQuickAction(
@@ -489,7 +486,7 @@ private fun CustomerQuickAction(
 
 // ─────────────────────────────────
 // Menu Card — tỉ lệ theo màn
-// Style ShopeeFood: tên 13-16sp, giá bold màu cam
+// Style giá bold màu cam
 // ─────────────────────────────────
 @Composable
 fun CustomerMenuCard(

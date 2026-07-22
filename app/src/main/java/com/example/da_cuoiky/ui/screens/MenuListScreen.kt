@@ -42,7 +42,7 @@ fun MenuListScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    // ✅ Responsive
+    //  Responsive
     val isSmall = LocalConfiguration.current.screenWidthDp < 380
 
     var selectedCategory by remember { mutableStateOf("Tất cả") }
@@ -180,7 +180,7 @@ fun ProductDetailScreen(
                             Text(
                                 text = "Thêm vào giỏ — %,d ₫".format((item.price ?: 0) * qty),
                                 fontWeight = FontWeight.Bold,
-                                // ✅ FIX: font nhỏ hơn, có maxLines tránh tràn
+                                //  font nhỏ hơn, có maxLines tránh tràn
                                 fontSize = 16.sp,
                                 color = Color.White,
                                 maxLines = 1,
@@ -197,9 +197,9 @@ fun ProductDetailScreen(
                         .fillMaxSize()
                         .padding(bottom = padding.calculateBottomPadding())
                 ) {
-                    // Ảnh sản phẩm với hiệu ứng Parallax nhẹ (nếu muốn)
+
                     item {
-                        // ✅ FIX: ảnh nhỏ hơn trên màn nhỏ
+
                         val screenWidth = LocalConfiguration.current.screenWidthDp
                         val heroH = when {
                             screenWidth < 380 -> 240.dp
@@ -223,7 +223,7 @@ fun ProductDetailScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .offset(y = (-20).dp) // Đè lên ảnh một chút
+                                .offset(y = (-20).dp)
                                 .background(
                                     MaterialTheme.colorScheme.background,
                                     RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
@@ -317,7 +317,7 @@ private fun MenuGridCard(
     onAdd: () -> Unit
 ) {
     val screenW = LocalConfiguration.current.screenWidthDp
-    // Font scale: 13sp (nhỏ) → 15sp (lớn) — phù hợp ShopeeFood
+    // Font scale: 13sp (nhỏ) → 15sp (lớn)
     val nameFontSize = when {
         screenW < 360 -> 12.sp
         screenW < 390 -> 13.sp

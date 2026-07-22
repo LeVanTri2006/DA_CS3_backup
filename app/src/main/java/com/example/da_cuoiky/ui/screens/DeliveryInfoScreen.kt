@@ -39,7 +39,7 @@ fun DeliveryInfoScreen(
     var address by remember { mutableStateOf(if (isPickup) "Nhận tại cửa hàng" else initialAddress) }
     var note by remember { mutableStateOf("") }
     
-    // ✅ FIX: Cập nhật lại state nếu initialName/Phone được nạp xong (do gọi API bị delay)
+    //  Cập nhật lại state nếu initialName/Phone được nạp xong (do gọi API bị delay)
     LaunchedEffect(initialName, initialPhone) {
         if (fullName.isEmpty() && initialName.isNotEmpty()) {
             fullName = initialName

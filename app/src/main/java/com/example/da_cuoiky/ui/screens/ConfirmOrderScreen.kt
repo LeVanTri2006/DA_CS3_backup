@@ -12,17 +12,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.da_cuoiky.model.DeliveryType
 import com.example.da_cuoiky.model.OrderItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfirmOrderScreen(
     cartItems: List<OrderItem>,
+    deliveryType: DeliveryType,
     onContinue: () -> Unit,
     onBack: () -> Unit
 ) {
     val subtotal = cartItems.sumOf { it.totalPrice }
-    val deliveryFee = 15000
+    val deliveryFee = if (deliveryType == DeliveryType.PICKUP) 0 else 15000
     val total = subtotal + deliveryFee
 
     Scaffold(

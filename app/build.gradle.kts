@@ -90,6 +90,10 @@ dependencies {
     // QR Generation
     implementation("com.google.zxing:core:3.5.3")
     
+    // PayPal SDK
+    implementation("com.paypal.android:paypal-web-payments:1.3.0")
+    implementation("com.paypal.android:payment-buttons:1.3.0")
+    
     implementation(libs.androidx.tv.material)
     // Tests
     testImplementation(libs.junit)

@@ -477,7 +477,7 @@ private fun BookingConfirmation(
                     
                     val qrUrl = "https://img.vietqr.io/image/TPBANK-0775109883-compact2.png?amount=100000&addInfo=${reservation.id}"
                     
-                    // ✅ FIX: QR size theo màn thay vì cứng 200dp
+                    // QR size theo màn thay vì cứng 200dp
                     val isSmallScreen = LocalConfiguration.current.screenWidthDp < 380
                     Box(
                         modifier = Modifier
@@ -537,7 +537,7 @@ private fun BookingInfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector
 
 @Composable
 private fun BookingSuccessScreen(reservation: Reservation, onDone: () -> Unit) {
-    // ✅ FIX: padding và icon tự co theo màn
+    //  padding và icon tự co theo màn
     val isSmall = LocalConfiguration.current.screenWidthDp < 380
     Column(
         modifier = Modifier
@@ -918,7 +918,7 @@ fun MyReservationsScreen(onBack: () -> Unit) {
                     
                     if (selectedReservation!!.statusStr.uppercase() == "CONFIRMED" || selectedReservation!!.statusStr.uppercase() == "DA_THANH_TOAN") {
                         Card(
-                            // ✅ FIX: QR trong dialog theo màn thay vì cứng 200dp
+                            //  QR trong dialog theo màn thay vì cứng 200dp
                             modifier = Modifier
                                 .fillMaxWidth(0.7f)
                                 .aspectRatio(1f),

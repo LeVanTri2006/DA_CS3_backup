@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -34,7 +35,7 @@ object PaymentConstants {
     const val ACCOUNT_NAME = "LE VAN TRI"
 }
 
-enum class CustomerPaymentMethod { COD, QR }
+enum class CustomerPaymentMethod { COD, QR, PAYPAL }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,13 +48,90 @@ fun CustomerPaymentScreen(
     navigateToTracking: (String) -> Unit
 ) {
     var selectedMethod by remember { mutableStateOf<CustomerPaymentMethod?>(null) }
+    var isOnlineExpanded by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
     var paymentSuccess by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var currentOrderId by remember { mutableStateOf<String?>(null) }
+    var currentOrderId by rememberSaveable { mutableStateOf<String?>(null) }
+    var currentPayPalOrderId by rememberSaveable { mutableStateOf<String?>(null) }
     var showQRModal by remember { mutableStateOf(false) }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    
     val scope = rememberCoroutineScope()
+    val activity = context as? androidx.fragment.app.FragmentActivity
+    
+    val payPalClient = remember(activity) {
+        if (activity != null) {
+            val config = com.paypal.android.corepayments.CoreConfig(
+                "AbXnimJcBjtYtH5Rq87kb6J5lraw9aGCvXH-AmXrCyK4-wWyF4qMzj_Ap-c0JVh4PTss4_8T8OBKg0ix",
+                environment = com.paypal.android.corepayments.Environment.LIVE
+            )
+            val client = com.paypal.android.paypalwebpayments.PayPalWebCheckoutClient(
+                activity, config, "dacuoikypaypal"
+            )
+            client.listener = object : com.paypal.android.paypalwebpayments.PayPalWebCheckoutListener {
+                override fun onPayPalWebSuccess(result: com.paypal.android.paypalwebpayments.PayPalWebCheckoutResult) {
+                    scope.launch {
+                        isProcessing = true
+                        try {
+                            val apiService = com.example.da_cuoiky.network.RetrofitClient.instance
+                            val request = HashMap<String, Any>()
+                            request["paypal_order_id"] = result.orderId ?: ""
+                            request["id_hoa_don"] = currentOrderId ?: ""
+                            val response = apiService.capturePayPalOrder(request)
+                            if (response.isSuccessful && response.body()?.get("status") == "success") {
+                                paymentSuccess = true
+                            } else {
+                                errorMessage = "Lỗi capture: ${response.body()?.get("message")}"
+                            }
+                        } catch (e: Exception) {
+                            errorMessage = "Lỗi mạng: ${e.message}"
+                        } finally {
+                            isProcessing = false
+                        }
+                    }
+                }
+                override fun onPayPalWebFailure(error: com.paypal.android.corepayments.PayPalSDKError) {
+                    errorMessage = "PayPal Error: ${error.errorDescription}"
+                    isProcessing = false
+                }
+                override fun onPayPalWebCanceled() {
+                    // Cố gắng capture trong trường hợp trình duyệt trả về Cancel (do mất State)
+                    // nhưng khách hàng thực ra đã ấn Approve trên Web!
+                    val localPId = currentPayPalOrderId
+                    val localOId = currentOrderId
+                    if (localPId != null && localOId != null) {
+                        scope.launch {
+                            isProcessing = true
+                            try {
+                                val apiService = com.example.da_cuoiky.network.RetrofitClient.instance
+                                val request = HashMap<String, Any>()
+                                request["paypal_order_id"] = localPId
+                                request["id_hoa_don"] = localOId
+                                val response = apiService.capturePayPalOrder(request)
+                                if (response.isSuccessful && response.body()?.get("status") == "success") {
+                                    paymentSuccess = true
+                                    errorMessage = null
+                                } else {
+                                    errorMessage = "Đã hủy thanh toán PayPal"
+                                }
+                            } catch (e: Exception) {
+                                errorMessage = "Đã hủy thanh toán PayPal"
+                            } finally {
+                                isProcessing = false
+                            }
+                        }
+                    } else {
+                        errorMessage = "Đã hủy thanh toán PayPal"
+                        isProcessing = false
+                    }
+                }
+            }
+            client
+        } else null
+    }
 
     Scaffold(
         topBar = {
@@ -142,16 +220,42 @@ fun CustomerPaymentScreen(
                         description = "Thanh toán tiền mặt khi nhận đơn hàng",
                         icon = Icons.Default.CheckCircle,
                         isSelected = selectedMethod == CustomerPaymentMethod.COD,
-                        onClick = { selectedMethod = CustomerPaymentMethod.COD }
+                        onClick = { 
+                            selectedMethod = CustomerPaymentMethod.COD 
+                            isOnlineExpanded = false
+                        }
                     )
                     
                     PaymentMethodCard(
-                        title = "Chuyển Khoản QR",
-                        description = "Quét mã QR để thanh toán ngay",
-                        icon = Icons.Default.QrCodeScanner,
-                        isSelected = selectedMethod == CustomerPaymentMethod.QR,
-                        onClick = { selectedMethod = CustomerPaymentMethod.QR }
+                        title = "Thanh Toán Online",
+                        description = "Chuyển khoản QR hoặc thanh toán PayPal",
+                        icon = Icons.Default.CheckCircle, // Main icon
+                        isSelected = isOnlineExpanded || selectedMethod == CustomerPaymentMethod.QR || selectedMethod == CustomerPaymentMethod.PAYPAL,
+                        onClick = { 
+                            isOnlineExpanded = true 
+                            if (selectedMethod == CustomerPaymentMethod.COD) selectedMethod = null
+                        }
                     )
+
+                    if (isOnlineExpanded) {
+                        Column(modifier = Modifier.padding(start = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            PaymentMethodCard(
+                                title = "VietQR",
+                                description = "Mở app ngân hàng quét mã",
+                                imageUrl = "https://img.vietqr.io/image/vietqr.png",
+                                isSelected = selectedMethod == CustomerPaymentMethod.QR,
+                                onClick = { selectedMethod = CustomerPaymentMethod.QR }
+                            )
+                            
+                            PaymentMethodCard(
+                                title = "PayPal",
+                                description = "Thanh toán bằng thẻ quốc tế",
+                                imageUrl = "https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_111x69.jpg",
+                                isSelected = selectedMethod == CustomerPaymentMethod.PAYPAL,
+                                onClick = { selectedMethod = CustomerPaymentMethod.PAYPAL }
+                            )
+                        }
+                    }
 
 
                     errorMessage?.let {
@@ -220,6 +324,12 @@ fun CustomerPaymentScreen(
                                     isProcessing = true
                                     scope.launch {
                                         try {
+                                            if (currentOrderId != null) {
+                                                showQRModal = true
+                                                isProcessing = false
+                                                return@launch
+                                            }
+                                            
                                             val apiService = com.example.da_cuoiky.network.RetrofitClient.instance
                                             val userId = try { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid } catch (e: Exception) { null }
                                             val request = mutableMapOf<String, String>(
@@ -264,6 +374,68 @@ fun CustomerPaymentScreen(
                                         }
                                     }
                                 }
+                                CustomerPaymentMethod.PAYPAL -> {
+                                    isProcessing = true
+                                    scope.launch {
+                                        try {
+                                            val apiService = com.example.da_cuoiky.network.RetrofitClient.instance
+                                            val userId = try { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid } catch (e: Exception) { null }
+                                            val request = mutableMapOf<String, String>(
+                                                "phuong_thuc_thanh_toan" to "paypal",
+                                                "ho_ten" to deliveryInfo.fullName,
+                                                "so_dien_thoai" to deliveryInfo.phone,
+                                                "dia_chi" to deliveryInfo.address,
+                                                "ghi_chu" to deliveryInfo.note,
+                                                "tong_tien" to totalAmount.toString()
+                                            )
+                                            if (userId != null) {
+                                                request["ma_nguoi_dung"] = userId
+                                            }
+                                            val itemsJson = cartItems.map {
+                                                """{"ma_mon_an":"${it.menuItemId}","so_luong":${it.qty},"don_gia":${it.price}}"""
+                                            }.joinToString(",")
+                                            request["items"] = "[$itemsJson]"
+
+                                            if (currentOrderId == null) {
+                                                if (cartItems.isEmpty()) {
+                                                    errorMessage = "Giỏ hàng trống hoặc đã hết hạn, vui lòng quay lại giỏ hàng."
+                                                    isProcessing = false
+                                                    return@launch
+                                                }
+                                                // 1. Tạo đơn hàng vào DB lần đầu
+                                                val response = apiService.createCustomerOrder(request)
+                                                if (response.isSuccessful && response.body()?.status == "success") {
+                                                    currentOrderId = response.body()?.data?.get("id_hoa_don")?.toString() ?: ""
+                                                } else {
+                                                    errorMessage = response.body()?.message ?: "Khởi tạo đơn thất bại"
+                                                    isProcessing = false
+                                                    return@launch
+                                                }
+                                            }
+
+                                            // Đã có currentOrderId, tiếp tục tạo/mở lại PayPal Order
+                                            val serverOrderId = currentOrderId ?: ""
+                                            val paypalReq = java.util.HashMap<String, Any>()
+                                            paypalReq["id_hoa_don"] = serverOrderId
+                                            paypalReq["tong_tien"] = totalAmount
+                                            val paypalRes = apiService.createPayPalOrder(paypalReq)
+                                            if (paypalRes.isSuccessful && paypalRes.body()?.get("status") == "success") {
+                                                val paypalOrderIdStr = paypalRes.body()?.get("paypal_order_id")?.toString() ?: ""
+                                                currentPayPalOrderId = paypalOrderIdStr
+                                                
+                                                // 3. Khởi động Web Checkout
+                                                val payPalReq = com.paypal.android.paypalwebpayments.PayPalWebCheckoutRequest(paypalOrderIdStr)
+                                                payPalClient?.start(payPalReq)
+                                            } else {
+                                                errorMessage = "Khởi tạo PayPal thất bại"
+                                                isProcessing = false
+                                            }
+                                        } catch (e: Exception) {
+                                            errorMessage = "Lỗi mạng: ${e.message}"
+                                            isProcessing = false
+                                        }
+                                    }
+                                }
                             }
                         }
                     },
@@ -289,10 +461,11 @@ fun CustomerPaymentScreen(
     }
 
     // QR Payment ModalBottomSheet
-    if (showQRModal && currentOrderId != null) {
+    val qrOrderId = currentOrderId
+    if (showQRModal && qrOrderId != null) {
         QRPaymentModalBottomSheet(
             totalAmount = totalAmount,
-            orderId = currentOrderId!!,
+            orderId = qrOrderId,
             onDismiss = { showQRModal = false },
             onConfirmPayment = { orderId ->
                 showQRModal = false
@@ -305,8 +478,9 @@ fun CustomerPaymentScreen(
 @Composable
 private fun PaymentMethodCard(
     title: String,
-    description: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String? = null,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    imageUrl: String? = null,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
@@ -336,16 +510,27 @@ private fun PaymentMethodCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    icon,
-                    null,
-                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (imageUrl != null) {
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = title,
+                        modifier = Modifier.size(32.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                } else if (icon != null) {
+                    Icon(
+                        icon,
+                        null,
+                        tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(title, fontWeight = FontWeight.Bold)
-                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                if (description != null) {
+                    Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                }
             }
             RadioButton(selected = isSelected, onClick = onClick)
         }

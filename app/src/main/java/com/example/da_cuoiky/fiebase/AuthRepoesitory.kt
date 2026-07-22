@@ -14,11 +14,11 @@ class AuthRepoesitory {
     private val auth = FirebaseAuth.getInstance()
     private val db   = FirebaseFirestore.getInstance()
 
-    // ── Đăng nhập ─────────────────────────────────────────────────────────────
+    // ── Đăng nhập
     suspend fun login(email: String, password: String): Result<String> {
         android.util.Log.d("LOGIN_TRACE", "Repository login called")
         
-        // Bước 1: Thử loginStaff trước (Cho nhân viên)
+        //  Thử loginStaff trước (Cho nhân viên)
         val staffResult = loginStaff(email, password)
         
         // Nếu lỗi mạng thật sự → dừng lại ngay, không thử Firebase
@@ -30,7 +30,7 @@ class AuthRepoesitory {
             return staffResult
         }
         
-        // Bước 2: Nếu không phải staff (hoặc staff API trả về thất bại), thử loginFirebase (Cho khách hàng)
+        // Nếu không phải staff (hoặc staff API trả về thất bại), thử loginFirebase (Cho khách hàng)
         return loginFirebase(email, password)
     }
 
@@ -68,7 +68,7 @@ class AuthRepoesitory {
         }
     }
 
-    // ── Đăng ký ───────────────────────────────────────────────────────────────
+    // ── Đăng ký
     suspend fun register(
         email: String,
         password: String,
@@ -95,14 +95,14 @@ class AuthRepoesitory {
         }
     }
 
-    // ── Lấy thông tin profile từ API PHP (Thay vì chỉ Firestore) ────────────────────
+    // ── Lấy thông tin profile từ API PHP (Thay vì chỉ Firestore)
     suspend fun getUserProfile(): Result<UserProfile> {
         return try {
             val uid = auth.currentUser?.uid ?: throw Exception("Chưa đăng nhập")
             
             val apiService = com.example.da_cuoiky.network.RetrofitClient.instance
             
-            // ✅ Gọi API get_profile từ server PHP để lấy thông tin + hạng
+            //  Gọi API get_profile từ server PHP để lấy thông tin + hạng
             val response = withTimeout(5000) {
                 apiService.getProfile(uid)
             }
@@ -142,7 +142,7 @@ class AuthRepoesitory {
     fun logout() = auth.signOut()
     fun getCurrenUser(): FirebaseUser? = auth.currentUser
 
-    // ── Đăng nhập / đăng ký bằng Google ─────────────────────────────────────
+    // ── Đăng nhập / đăng ký bằng Google
     suspend fun signInWithGoogle(idToken: String): Result<String> {
         return try {
             val credential = GoogleAuthProvider.getCredential(idToken, null)
@@ -169,7 +169,7 @@ class AuthRepoesitory {
         }
     }
 
-    // ── Gửi email đặt lại mật khẩu ─────────────────────────────────────────────
+    // ── Gửi email đặt lại mật khẩu
     suspend fun resetPassword(email: String): Result<Unit> {
         return try {
             auth.sendPasswordResetEmail(email).await()
@@ -179,7 +179,7 @@ class AuthRepoesitory {
         }
     }
 
-    // ── Đăng nhập bằng Facebook ────────────────────────────────────────
+    // ── Đăng nhập bằng Facebook
     suspend fun signInWithFacebook(accessToken: String): Result<String> {
         return try {
             val credential = FacebookAuthProvider.getCredential(accessToken)

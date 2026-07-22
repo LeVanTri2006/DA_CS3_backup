@@ -12,6 +12,17 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import androidx.navigation.NavController
 import com.example.da_cuoiky.fiebase.AuthViewModel
 import com.example.da_cuoiky.model.*
@@ -20,7 +31,7 @@ import com.example.da_cuoiky.navigation.Screen
 // ── Tab enum ──────────────────────────────────────────────────────────────────
 enum class CustomerTab { HOME, MENU, BOOKING, ORDERS, PROFILE }
 
-// ── Màn hình chính sau khi đăng nhập ─────────────────────────────────────────
+
 @Composable
 fun CustomerMainScreen(
     navController: NavController,
@@ -43,6 +54,9 @@ fun CustomerMainScreen(
         )
     }
     var selectedTab by selectedTabState
+
+    val offsetX = remember { androidx.compose.animation.core.Animatable(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
 
     Scaffold(
         bottomBar = {
@@ -86,7 +100,7 @@ fun CustomerMainScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
             when (selectedTab) {
                 CustomerTab.HOME -> CustomerHomeScreen(
                     user           = null,
@@ -158,6 +172,65 @@ fun CustomerMainScreen(
                     } else {
                         navController.navigate(Screen.Login.route)
                     }
+                }
+            }
+
+            // Draggable AI Button
+            val coroutineScope = rememberCoroutineScope()
+            val screenWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) {
+                LocalConfiguration.current.screenWidthDp.dp.toPx()
+            }
+            val maxShiftLeftPx = with(androidx.compose.ui.platform.LocalDensity.current) {
+                (LocalConfiguration.current.screenWidthDp.dp - 88.dp).toPx()
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset { IntOffset(offsetX.value.roundToInt(), offsetY.roundToInt()) }
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragEnd = {
+                                coroutineScope.launch {
+                                    val targetX = if (offsetX.value < -screenWidthPx / 2) {
+                                        -maxShiftLeftPx
+                                    } else {
+                                        0f
+                                    }
+                                    offsetX.animateTo(
+                                        targetValue = targetX, 
+                                        animationSpec = androidx.compose.animation.core.tween(300)
+                                    )
+                                }
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                coroutineScope.launch {
+                                    offsetX.snapTo(offsetX.value + dragAmount.x)
+                                }
+                                offsetY += dragAmount.y
+                            }
+                        )
+                    }
+                    .padding(16.dp)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    FloatingActionButton(
+                        onClick = { navController.navigate(Screen.AiAssistant.route) },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = androidx.compose.ui.graphics.Color.White
+                    ) {
+                        Icon(Icons.Default.SmartToy, contentDescription = "Trợ lý AI")
+                    }
+                    Spacer(modifier = Modifier.padding(top = 4.dp))
+                    Text(
+                        text = "Chat AI",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
